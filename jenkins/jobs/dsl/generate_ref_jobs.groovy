@@ -20,7 +20,7 @@ def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplic
 pipelineView.with{
     title('ADOP Nodeapp Pipeline')
     displayedBuilds(5)
-    selectedJob("/build-nodeapp")
+    selectedJob(projectFolderName + "/build-nodeapp")
     showPipelineParameters()
     showPipelineDefinitionHeader()
     refreshFrequency(5)
