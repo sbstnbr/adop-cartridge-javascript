@@ -171,7 +171,7 @@ deployCIJob.with{
   publishers{
     downstreamParameterized{
       trigger(projectFolderName + "/funtionaltest-nodeapp"){
-        condition("STABLE")
+        condition("UNSTABLE_OR_BETTER")
         parameters{
           predefinedProp("B",'${BUILD_NUMBER}')
           predefinedProp("PARENT_BUILD", '${JOB_NAME}')
@@ -206,7 +206,7 @@ functionalTestAppJob.with{
   publishers{
     downstreamParameterized{
       trigger(projectFolderName + "/technicaltest-nodeapp"){
-        condition("STABLE")
+        condition("UNSTABLE_OR_BETTER")
         parameters{
           predefinedProp("B",'${BUILD_NUMBER}')
           predefinedProp("PARENT_BUILD", '${JOB_NAME}')
@@ -242,7 +242,7 @@ technicalTestAppJob.with{
   publishers{
     downstreamParameterized{
       trigger(projectFolderName + "/deploy-PROD-node_A"){
-        condition("STABLE")
+        condition("UNSTABLE_OR_BETTER")
         parameters{
           predefinedProp("B",'${BUILD_NUMBER}')
           predefinedProp("PARENT_BUILD", '${JOB_NAME}')
