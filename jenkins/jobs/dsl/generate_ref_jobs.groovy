@@ -44,18 +44,26 @@ buildAppJob.with {
     }
     steps {
         shell('''
-      |git config --global url."https://".insteadOf git://
-      |echo $PATH
-      |npm cache clean
-      |rm -rf dist dist.zip
-      |grunt build
-      |cd dist
-      |zip -rq dist.zip *
-      |cp dist.zip $WORKSPACE
-      |cd $WORKSPACE/api
-      |zip -rq api.zip *
-      |cp api.zip $WORKSPACE
-      '''.stripMargin())
+            mkdir ${WORKSPACE}/bin
+            cd ${WORKSPACE}/bin
+            wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/phantomjs
+            #wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/bzip2
+            chmod +x ${WORKSPACE}/bin/phantomjs
+            export PATH="$PATH:${WORKSPACE}/bin/"
+            cd ${WORKSPACE}
+            git config --global url."https://".insteadOf git://
+            echo $PATH
+            npm cache clean
+            npm install -g grunt --save-dev
+            npm install -g grunt-contrib-imagemin --save-dev
+            npm install
+            rm -rf dist dist.zip
+            bower install
+            grunt build
+            cd dist
+            zip -rq dist.zip *
+            cp dist.zip $WORKSPACE
+            '''.stripMargin())
     }
     steps {
         systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
@@ -87,7 +95,7 @@ buildAppJob.with {
         }
     }
     publishers {
-        archiveArtifacts("dist.zip, api.zip")
+        archiveArtifacts("dist.zip")
         downstreamParameterized {
             trigger(projectFolderName + "/codeanalysis-nodeapp") {
                 condition("SUCCESS")
