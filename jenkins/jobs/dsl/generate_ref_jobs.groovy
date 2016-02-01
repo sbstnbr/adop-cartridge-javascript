@@ -98,7 +98,7 @@ buildAppJob.with {
         archiveArtifacts("dist.zip")
         downstreamParameterized {
             trigger(projectFolderName + "/codeanalysis-nodeapp") {
-                condition("SUCCESS")
+                condition("UNSTABLE_OR_BETTER")
             }
         }
     }
@@ -117,6 +117,8 @@ codeAnalysisJob.with {
     }
     wrappers {
         preBuildCleanup()
+        colorizeOutput(colorMap = 'xterm')
+        nodejs('ADOP NodeJS')
     }
     scm {
         git {
