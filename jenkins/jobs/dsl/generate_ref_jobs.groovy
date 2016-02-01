@@ -134,6 +134,7 @@ codeAnalysisJob.with {
       |git config --global url."https://".insteadOf git://
       |echo $PATH
       |npm cache clean
+      |npm install -g grunt --save-dev
       |grunt jshint || exit 0
       |grunt plato || exit 0
       |echo "${JENKINS_URL}view/AOWP_pipeline/job/codeanalysis-nodeapp/HTML_Report/"'''.stripMargin())
