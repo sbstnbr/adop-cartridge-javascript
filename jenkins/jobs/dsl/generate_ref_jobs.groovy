@@ -10,7 +10,7 @@ def codeAnalysisJob = freeStyleJob(projectFolderName + "/codeanalysis-nodeapp")
 def buildAppJob = freeStyleJob(projectFolderName + "/build-nodeapp")
 def deployCIJob = freeStyleJob(projectFolderName + "/deploy-nodeCIenv")
 def deployPRODNodeAJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_A")
-def deployPRODBNodeBJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_B")
+def deployPRODNodeBJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_B")
 def functionalTestAppJob = freeStyleJob(projectFolderName + "/funtionaltest-nodeapp")
 def technicalTestAppJob = freeStyleJob(projectFolderName + "/technicaltest-nodeapp")
 
@@ -252,7 +252,7 @@ technicalTestAppJob.with{
   }
 }
 
-deployPRODBNodeAJob.with{
+deployPRODNodeAJob.with{
   description("Deploy nodejs reference app to Node A")
   wrappers {
     preBuildCleanup()
@@ -288,7 +288,7 @@ deployPRODBNodeAJob.with{
   }
 }
 
-deployPRODBNodeBJob.with{
+deployPRODNodeBJob.with{
   description("Deploy nodejs reference app to Node B")
   wrappers {
     preBuildCleanup()
