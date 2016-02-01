@@ -31,6 +31,7 @@ buildAppJob.with {
     wrappers {
         preBuildCleanup()
         colorizeOutput(colorMap = 'xterm')
+        nodejs('ADOP NodeJS')
     }
     scm {
         git {
