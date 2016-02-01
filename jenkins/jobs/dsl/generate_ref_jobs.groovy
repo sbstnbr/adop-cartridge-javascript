@@ -90,7 +90,7 @@ buildAppJob.with {
         archiveArtifacts("dist.zip, api.zip")
         downstreamParameterized {
             trigger(projectFolderName + "/codeanalysis-nodeapp") {
-                condition("UNSTABLE_OR_BETTER")
+                condition("SUCCESS")
             }
         }
     }
@@ -169,7 +169,7 @@ deployCIJob.with {
     publishers {
         downstreamParameterized {
             trigger(projectFolderName + "/funtionaltest-nodeapp") {
-                condition("UNSTABLE_OR_BETTER")
+                condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
@@ -204,7 +204,7 @@ functionalTestAppJob.with {
     publishers {
         downstreamParameterized {
             trigger(projectFolderName + "/technicaltest-nodeapp") {
-                condition("UNSTABLE_OR_BETTER")
+                condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
@@ -240,7 +240,7 @@ technicalTestAppJob.with {
     publishers {
         downstreamParameterized {
             trigger(projectFolderName + "/deploy-PROD-node_A") {
-                condition("UNSTABLE_OR_BETTER")
+                condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
