@@ -1,1 +1,1 @@
-git@innersource.accenture.com:adop-b-framework-avs/java-reference-app.git
+git@innersource.accenture.com:my-sandbox/joshua-gentess-digital-globe.git

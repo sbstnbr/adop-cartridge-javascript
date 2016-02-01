@@ -3,7 +3,7 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/node-questionapp"
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/joshua-gentess-digital-globe.git"
 
 // Jobs
 def codeAnalysisJob = freeStyleJob(projectFolderName + "/codeanalysis-nodeapp")
@@ -41,18 +41,18 @@ buildAppJob.with {
         }
     }
     steps {
-        shell('''set +x
-      git config --global url."https://".insteadOf git://
-      echo $PATH
-      npm cache clean
-      rm -rf dist dist.zip
-      grunt build
-      cd dist
-      zip -rq dist.zip *
-      cp dist.zip $WORKSPACE
-      cd $WORKSPACE/api
-      zip -rq api.zip *
-      cp api.zip $WORKSPACE
+        shell('''
+      |git config --global url."https://".insteadOf git://
+      |echo $PATH
+      |npm cache clean
+      |rm -rf dist dist.zip
+      |grunt build
+      |cd dist
+      |zip -rq dist.zip *
+      |cp dist.zip $WORKSPACE
+      |cd $WORKSPACE/api
+      |zip -rq api.zip *
+      |cp api.zip $WORKSPACE
       '''.stripMargin())
     }
     steps {
@@ -89,10 +89,6 @@ buildAppJob.with {
         downstreamParameterized {
             trigger(projectFolderName + "/codeanalysis-nodeapp") {
                 condition("UNSTABLE_OR_BETTER")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
             }
         }
     }
@@ -122,13 +118,13 @@ codeAnalysisJob.with {
         }
     }
     steps {
-        shell('''set +x
-      git config --global url."https://".insteadOf git://
-      echo $PATH
-      npm cache clean
-      grunt jshint || exit 0
-      grunt plato || exit 0
-      echo "${JENKINS_URL}view/AOWP_pipeline/job/codeanalysis-nodeapp/HTML_Report/"'''.stripMargin())
+        shell('''
+      |git config --global url."https://".insteadOf git://
+      |echo $PATH
+      |npm cache clean
+      |grunt jshint || exit 0
+      |grunt plato || exit 0
+      |echo "${JENKINS_URL}view/AOWP_pipeline/job/codeanalysis-nodeapp/HTML_Report/"'''.stripMargin())
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
