@@ -30,6 +30,7 @@ buildAppJob.with {
     description("Build nodejs reference app")
     wrappers {
         preBuildCleanup()
+        colorizeOutput(colorMap = 'xterm')
     }
     scm {
         git {
