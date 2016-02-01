@@ -55,7 +55,7 @@ buildAppJob.with {
             echo $PATH
             npm cache clean
             npm install -g grunt --save-dev
-            npm install -g grunt-contrib-imagemin --save-dev
+            npm install grunt-contrib-imagemin --save-dev
             npm install
             rm -rf dist dist.zip
             bower install
