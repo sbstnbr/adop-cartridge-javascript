@@ -139,8 +139,8 @@ codeAnalysisJob.with {
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''sonar.projectKey=node-questionapp
-                sonar.projectName=node-questionapp
+            properties('''sonar.projectKey=${PROJECT_NAME}
+                sonar.projectName=${PROJECT_NAME}
                 sonar.projectVersion=0.0.1
                 sonar.language=js
                 sonar.sources=app/scripts''')
