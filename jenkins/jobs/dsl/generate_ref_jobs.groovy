@@ -138,18 +138,34 @@ codeAnalysisJob.with {
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''sonar.projectKey=${WORKSPACE_NAME}
-            sonar.projectName=${WORKSPACE_NAME}
-            sonar.projectVersion=0.0.1
-            sonar.language=js
-            sonar.sources=scripts
-            sonar.scm.enabled=false''')
+            properties('''|sonar.projectKey=${WORKSPACE_NAME}
+            |sonar.projectName=${WORKSPACE_NAME}
+            |sonar.projectVersion=0.0.1
+            |sonar.language=js
+            |sonar.sources=scripts
+            |sonar.scm.enabled=false'''.stripMargin())
             javaOpts()
             jdk('(Inherit From Job)')
             task()
         }
     }
     publishers {
+        jshint('**/jshintoutput.xml') {
+            healthLimits(3, 20)
+            thresholdLimit('high')
+            defaultEncoding('UTF-8')
+            canRunOnFailed(true)
+            useStableBuildAsReference(true)
+            useDeltaValues(true)
+            computeNew(true)
+            shouldDetectModules(true)
+            thresholds(
+                    unstableTotal: [all: 1, high: 2, normal: 3, low: 4],
+                    failedTotal: [all: 5, high: 6, normal: 7, low: 8],
+                    unstableNew: [all: 9, high: 10, normal: 11, low: 12],
+                    failedNew: [all: 13, high: 14, normal: 15, low: 16]
+            )
+        }
         downstreamParameterized {
             trigger(projectFolderName + "/deploy-nodeCIenv") {
                 condition("UNSTABLE_OR_BETTER")
