@@ -228,10 +228,8 @@ technicalTestAppJob.with {
     wrappers {
         preBuildCleanup()
     }
-    groovyScript {
-        matcher = JENKINS_URL =~ /http:\/\/(.*?)\/jenkins.*/;
-        def map = [STACK_IP: matcher[0][1]];
-        return map;
+    environmentVariables{
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     scm {
         git {
