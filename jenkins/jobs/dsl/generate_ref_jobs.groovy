@@ -138,12 +138,12 @@ codeAnalysisJob.with {
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''
-            |sonar.projectKey=${WORKSPACE_NAME}
-            |sonar.projectName=${WORKSPACE_NAME}
-            |sonar.projectVersion=0.0.1
-            |sonar.language=js
-            |sonar.sources=scripts''')
+            properties('''sonar.projectKey=${WORKSPACE_NAME}
+            sonar.projectName=${WORKSPACE_NAME}
+            sonar.projectVersion=0.0.1
+            sonar.language=js
+            sonar.sources=scripts
+            sonar.scm.enabled=false''')
             javaOpts()
             jdk('(Inherit From Job)')
             task()
