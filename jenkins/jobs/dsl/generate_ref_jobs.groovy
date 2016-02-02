@@ -131,16 +131,19 @@ codeAnalysisJob.with {
             }
         }
     }
+    steps{
+        shell('''
+            tar xvf dist.tar.
+
+    '''.stripMargin())
+    }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            project('sonar-project.properties')
-            properties('''sonar.projectKey=org.java.reference-application
-        sonar.projectName=Reference application
-        sonar.projectVersion=1.0.0
-        sonar.sources=src
-        sonar.language=java
-        sonar.sourceEncoding=UTF-8
-        sonar.scm.enabled=false''')
+            properties('''sonar.projectKey=node-questionapp
+                sonar.projectName=node-questionapp
+                sonar.projectVersion=0.0.1
+                sonar.language=js
+                sonar.sources=app/scripts''')
             javaOpts()
             jdk('(Inherit From Job)')
             task()
