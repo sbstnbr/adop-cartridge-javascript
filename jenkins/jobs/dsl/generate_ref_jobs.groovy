@@ -44,25 +44,24 @@ buildAppJob.with {
     }
     steps {
         shell('''
-            mkdir ${WORKSPACE}/bin
-            cd ${WORKSPACE}/bin
-            wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/phantomjs
-            #wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/bzip2
-            chmod +x ${WORKSPACE}/bin/phantomjs
-            export PATH="$PATH:${WORKSPACE}/bin/"
-            cd ${WORKSPACE}
-            git config --global url."https://".insteadOf git://
-            echo $PATH
-            npm cache clean
-            npm install -g grunt --save-dev
-            npm install grunt-contrib-imagemin --save-dev
-            npm install
-            rm -rf dist dist.zip
-            bower install
-            grunt build
-            cd dist
-            zip -rq dist.zip *
-            cp dist.zip $WORKSPACE
+            |mkdir ${WORKSPACE}/bin
+            |cd ${WORKSPACE}/bin
+            |wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/phantomjs
+            |chmod +x ${WORKSPACE}/bin/phantomjs
+            |export PATH="$PATH:${WORKSPACE}/bin/"
+            |cd ${WORKSPACE}
+            |git config --global url."https://".insteadOf git://
+            |echo $PATH
+            |npm cache clean
+            |npm install -g grunt --save-dev
+            |npm install grunt-contrib-imagemin --save-dev
+            |npm install
+            |rm -rf dist dist.zip
+            |bower install
+            |grunt build
+            |cd dist
+            |zip -rq dist.zip *
+            |cp dist.zip $WORKSPACE
             '''.stripMargin())
     }
     steps {
@@ -168,9 +167,10 @@ deployCIJob.with {
         preBuildCleanup()
     }
     steps {
-        shell('''set +x
-      sleep 12
-      echo "Deploy to CI environment completed"'''.stripMargin())
+        shell('''
+    |set +x
+    |sleep 12
+    |echo "Deploy to CI environment completed"'''.stripMargin())
     }
     publishers {
         downstreamParameterized {
@@ -189,6 +189,8 @@ functionalTestAppJob.with {
     description("Run functional tests for nodejs reference app")
     wrappers {
         preBuildCleanup()
+        colorizeOutput(colorMap = 'xterm')
+        nodejs('ADOP NodeJS')
     }
     scm {
         git {
@@ -204,6 +206,7 @@ functionalTestAppJob.with {
       git config --global url."https://".insteadOf git://
       echo $PATH
       npm cache clean
+      npm install -g grunt grunt-cli --save-dev
       grunt test || exit 0
       '''.stripMargin())
     }
