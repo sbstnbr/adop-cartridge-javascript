@@ -99,6 +99,10 @@ buildAppJob.with {
         downstreamParameterized {
             trigger(projectFolderName + "/codeanalysis-nodeapp") {
                 condition("UNSTABLE_OR_BETTER")
+                parameters{
+                    predefinedProp("B",'${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
             }
         }
     }
@@ -120,24 +124,12 @@ codeAnalysisJob.with {
         colorizeOutput(colorMap = 'xterm')
         nodejs('ADOP NodeJS')
     }
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
     steps {
-        shell('''
-      |git config --global url."https://".insteadOf git://
-      |echo $PATH
-      |npm cache clean
-      |npm install -g grunt --save-dev
-      |grunt jshint || exit 0
-      |grunt plato || exit 0
-      |echo "${JENKINS_URL}view/AOWP_pipeline/job/codeanalysis-nodeapp/HTML_Report/"'''.stripMargin())
+        copyArtifacts('build-nodeapp') {
+            buildSelector {
+                buildNumber('${B}')
+            }
+        }
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
@@ -160,7 +152,7 @@ codeAnalysisJob.with {
                 condition("UNSTABLE_OR_BETTER")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
                 }
             }
         }
