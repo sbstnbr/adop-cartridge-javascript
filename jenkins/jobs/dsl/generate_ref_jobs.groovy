@@ -31,8 +31,6 @@ buildAppJob.with {
     description("Build nodejs reference app")
     wrappers {
         preBuildCleanup()
-        colorizeOutput(colorMap = 'xterm')
-        nodejs('ADOP NodeJS')
     }
     scm {
         git {
@@ -44,50 +42,39 @@ buildAppJob.with {
         }
     }
     steps {
-        shell('''
-            |mkdir ${WORKSPACE}/bin
-            |cd ${WORKSPACE}/bin
-            |wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/phantomjs
-            |wget https://get.docker.com/builds/Linux/x86_64/docker-latest -O ${JENKINS_HOME}/tools/docker
-            |chmod +x ${WORKSPACE}/bin/phantomjs
-            |chmod +x ${JENKINS_HOME}/tools/docker
-            |export PATH="$PATH:${WORKSPACE}/bin/"
-            '''.stripMargin())
-    }
-    steps {
         shell('''set +x
-            |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
-            |    DOCKER_VERSION=1.9.1
-            |    mkdir -p ${JENKINS_HOME}/tools
-            |    wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
-            |    chmod +x "${JENKINS_HOME}/tools/docker"
-            |fi
-            |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]')
-            |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
-            |
-            |COUNT=1
-            |while ! ${JENKINS_HOME}/tools/docker build -t ${DOCKER_REGISTRY}/avs/${project_name}:${B} .
-            |do
-            |  if [ ${COUNT} -gt 10 ]; then
-            |      echo "Docker build failed even after ${COUNT}. Please investigate."
-            |      exit 1
-            |    fi
-            |    echo "Docker build failed. Retrying ..Attempt (${COUNT})"
-            |  COUNT=$((COUNT+1))
-            |done
-            |
-            |COUNT=1
-            |while ! ${JENKINS_HOME}/tools/docker push ${DOCKER_REGISTRY}/avs/${project_name}:${B}
-            |do
-            |  if [ ${COUNT} -gt 10 ]; then
-            |      echo "Docker push failed even after ${COUNT}. Please investigate."
-            |      exit 1
-            |    fi
-            |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
-            |  COUNT=$((COUNT+1))
-            |done
-            |
-            |'''.stripMargin())
+                |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
+                |    DOCKER_VERSION=1.6.0
+                |    mkdir -p ${JENKINS_HOME}/tools
+                |    wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
+                |    chmod +x "${JENKINS_HOME}/tools/docker"
+                |fi
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]')
+                |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
+                |
+                |COUNT=1
+                |while ! ${JENKINS_HOME}/tools/docker build -t ${DOCKER_REGISTRY}/avs/${project_name}:${B} .
+                |do
+                |  if [ ${COUNT} -gt 10 ]; then
+                |      echo "Docker build failed even after ${COUNT}. Please investigate."
+                |      exit 1
+                |    fi
+                |    echo "Docker build failed. Retrying ..Attempt (${COUNT})"
+                |  COUNT=$((COUNT+1))
+                |done
+                |
+                |COUNT=1
+                |while ! ${JENKINS_HOME}/tools/docker push ${DOCKER_REGISTRY}/avs/${project_name}:${B}
+                |do
+                |  if [ ${COUNT} -gt 10 ]; then
+                |      echo "Docker push failed even after ${COUNT}. Please investigate."
+                |      exit 1
+                |    fi
+                |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
+                |  COUNT=$((COUNT+1))
+                |done
+                |
+                |'''.stripMargin())
         }
 
     steps {
