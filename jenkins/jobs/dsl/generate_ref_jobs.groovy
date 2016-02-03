@@ -57,7 +57,7 @@ buildAppJob.with {
     steps {
         shell('''set +x
             |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
-            |    DOCKER_VERSION=1.9.1
+            |    DOCKER_VERSION=1.6.0
             |    mkdir -p ${JENKINS_HOME}/tools
             |    wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
             |    chmod +x "${JENKINS_HOME}/tools/docker"
