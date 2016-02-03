@@ -7,14 +7,14 @@ def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${P
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/gatling-tests.git";
 
 // Jobs
-def codeAnalysisJob = freeStyleJob(projectFolderName + "/codeanalysis-nodeapp")
-def buildAppJob = freeStyleJob(projectFolderName + "/build-nodeapp")
-def deployCIJob = freeStyleJob(projectFolderName + "/deploy-nodeCIenv")
-def deployPRODNodeAJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_A")
-def deployPRODNodeBJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_B")
-def functionalTestAppJob = freeStyleJob(projectFolderName + "/funtionaltest-nodeapp")
-def securityTestAppJob = freeStyleJob(projectFolderName + "/securitytest-nodeapp")
-def technicalTestAppJob = freeStyleJob(projectFolderName + "/technicaltest-nodeapp")
+def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
+def codeAnalysisJob = freeStyleJob(projectFolderName + "/Code_Analysis")
+def deployToCIEnvJob = freeStyleJob(projectFolderName + "/Deploy_To_CI_ENV")
+def deployToProdNode1Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_1")
+def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_2")
+def functionalTestsJob = freeStyleJob(projectFolderName + "/Functional_Tests")
+def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
+def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -22,7 +22,7 @@ def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplic
 pipelineView.with {
     title('ADOP Nodeapp Pipeline')
     displayedBuilds(5)
-    selectedJob(projectFolderName + "/build-nodeapp")
+    selectedJob(projectFolderName + "/Build_App")
     showPipelineParameters()
     showPipelineDefinitionHeader()
     refreshFrequency(5)
@@ -75,8 +75,7 @@ buildAppJob.with {
                 |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
                 |  COUNT=$((COUNT+1))
                 |done
-                |
-                |'''.stripMargin())
+                '''.stripMargin())
     }
     steps {
         systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
@@ -109,7 +108,7 @@ buildAppJob.with {
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/codeanalysis-nodeapp") {
+            trigger(projectFolderName + "/Code_Analysis") {
                 condition("UNSTABLE_OR_BETTER")
                 parameters{
                     predefinedProp("B",'${BUILD_NUMBER}')
@@ -170,7 +169,8 @@ codeAnalysisJob.with {
             |sonar.projectVersion=0.0.1
             |sonar.language=js
             |sonar.sources=app/scripts
-            |sonar.scm.enabled=false'''.stripMargin())
+            |sonar.scm.enabled=false
+            '''.stripMargin())
             javaOpts()
             jdk('(Inherit From Job)')
             task()
@@ -178,7 +178,7 @@ codeAnalysisJob.with {
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/deploy-nodeCIenv") {
+            trigger(projectFolderName + "/Deploy_To_CI_ENV") {
                 condition("UNSTABLE_OR_BETTER")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
@@ -189,20 +189,20 @@ codeAnalysisJob.with {
     }
 }
 
-deployCIJob.with {
-    description("Deploy CI Job")
+deployToCIEnvJob.with {
+    description("Deploy CI Environment Job")
     wrappers {
         preBuildCleanup()
     }
     steps {
-        shell('''
-    |set +x
-    |sleep 12
-    |echo "Deploy to CI environment completed"'''.stripMargin())
+        shell('''set +x
+                |sleep 12
+                |echo "Deploy to CI environment completed"
+                '''.stripMargin())
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/funtionaltest-nodeapp") {
+            trigger(projectFolderName + "/Functional_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
@@ -213,12 +213,10 @@ deployCIJob.with {
     }
 }
 
-functionalTestAppJob.with {
+functionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
     wrappers {
         preBuildCleanup()
-        colorizeOutput(colorMap = 'xterm')
-        nodejs('ADOP NodeJS')
     }
     scm {
         git {
@@ -231,16 +229,16 @@ functionalTestAppJob.with {
     }
     steps {
         shell('''set +x
-      git config --global url."https://".insteadOf git://
-      echo $PATH
-      npm cache clean
-      npm install -g grunt grunt-cli --save-dev
-      grunt test || exit 0
-      '''.stripMargin())
+                |git config --global url."https://".insteadOf git://
+                |echo $PATH
+                |npm cache clean
+                |npm install -g grunt grunt-cli --save-dev
+                |grunt test || exit 0
+                '''.stripMargin())
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/securitytest-nodeapp") {
+            trigger(projectFolderName + "/Security_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
@@ -251,7 +249,7 @@ functionalTestAppJob.with {
     }
 }
 
-securityTestAppJob.with{
+securityTestsJob.with{
     description("Tests nodejs reference app with OWASP ZAP")
     scm{
         git{
@@ -294,7 +292,8 @@ securityTestAppJob.with{
                 |
                 |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
                 |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
-                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties'''.stripMargin())
+                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties
+                '''.stripMargin())
         environmentVariables{
             propertiesFile('maven_variables.properties')
         }
@@ -312,7 +311,8 @@ securityTestAppJob.with{
                 |
                 |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
-                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .'''.stripMargin())
+                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .
+                '''.stripMargin())
     }
     publishers{
         archiveArtifacts("*.html")
@@ -330,7 +330,7 @@ securityTestAppJob.with{
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/technicaltest-nodeapp") {
+            trigger(projectFolderName + "/Performance_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
@@ -341,7 +341,7 @@ securityTestAppJob.with{
     }
 }
 
-technicalTestAppJob.with {
+performanceTestsJob.with {
     description("Run technical tests fot nodejs reference app")
     wrappers {
         preBuildCleanup()
@@ -359,36 +359,36 @@ technicalTestAppJob.with {
         }
     }
     steps {
-        shell('''
-            |sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
-            |echo "$STACK_IP"'''.stripMargin())
+        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+                |echo "$STACK_IP"
+                '''.stripMargin())
     }
     steps {
         shell('''set +x
-      echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"
-      '''.stripMargin())
+                |echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"
+                '''.stripMargin())
     }
     steps{
         maven{
             goals("gatling:execute")
             mavenInstallation("ADOP Maven")
-            }
+        }
     }
     configure{ myProject ->
-        myProject / publishers << 'io.gatling.jenkins.GatlingPublisher'(plugin: "gatling@1.1.1"){
+        myProject / publishers << 'io.gatling.jenkins.GatlingPublisher'(plugin: "gatling@1.1.1") {
             enabled("true")
-            }
+        }
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/deploy-PROD-node_A") {
+            trigger(projectFolderName + "/Deploy_To_Prod_Node_1") {
                 condition("SUCCESS")
             }
         }
     }
 }
 
-deployPRODNodeAJob.with {
+deployToProdNode1Job.with {
     description("Deploy nodejs reference app to Node A")
     wrappers {
         preBuildCleanup()
@@ -401,30 +401,28 @@ deployPRODNodeAJob.with {
         }
     }
     steps {
-        shell('''
-      git clone ssh://jenkins@gerrit.service.adop.consul:29418/chef_project
-      cp $WORKSPACE/chef_project/academy_key.pem $WORKSPACE
-      rm -rf chef_project
-      chmod 400 academy_key.pem
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp; rm -rf /data/nodeapp/api/*;'"
-      scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
-
-      scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
-
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
-      '''.stripMargin())
+        shell('''#git clone ssh://jenkins@gerrit.service.adop.consul:29418/chef_project
+                |#cp $WORKSPACE/chef_project/academy_key.pem $WORKSPACE
+                |#rm -rf chef_project
+                |#chmod 400 academy_key.pem
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp; rm -rf /data/nodeapp/api/*;'"
+                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
+                |#
+                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
+                |#
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
+                '''.stripMargin())
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/deploy-PROD-node_B") {
-            }
+            buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_Node_2")
         }
     }
 }
 
-deployPRODNodeBJob.with {
+deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
     wrappers {
         preBuildCleanup()
@@ -437,17 +435,16 @@ deployPRODNodeBJob.with {
         }
     }
     steps {
-        shell('''
-      git clone ssh://jenkins@gerrit.service.adop.consul:29418/chef_project
-      cp $WORKSPACE/chef_project/academy_key.pem $WORKSPACE
-      rm -rf chef_project
-      chmod 400 academy_key.pem
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp; rm -rf /data/nodeapp/api/*;'"
-      scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
-      scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
-      ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
-      '''.stripMargin())
+        shell('''#git clone ssh://jenkins@gerrit.service.adop.consul:29418/chef_project
+                |#cp $WORKSPACE/chef_project/academy_key.pem $WORKSPACE
+                |#rm -rf chef_project
+                |#chmod 400 academy_key.pem
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp; rm -rf /data/nodeapp/api/*;'"
+                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
+                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
+                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
+                '''.stripMargin())
     }
 }
