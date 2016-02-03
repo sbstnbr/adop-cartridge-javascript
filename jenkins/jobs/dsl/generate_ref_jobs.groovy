@@ -44,17 +44,6 @@ buildAppJob.with {
         }
     }
     steps {
-        shell('''
-            |mkdir ${WORKSPACE}/bin
-            |cd ${WORKSPACE}/bin
-            |wget https://adop-framework-aowp.s3.amazonaws.com/data/software/bin/phantomjs
-            |wget https://get.docker.com/builds/Linux/x86_64/docker-latest -O ${JENKINS_HOME}/tools/docker
-            |chmod +x ${WORKSPACE}/bin/phantomjs
-            |chmod +x ${JENKINS_HOME}/tools/docker
-            |export PATH="$PATH:${WORKSPACE}/bin/"
-            '''.stripMargin())
-    }
-    steps {
         shell('''set +x
             |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
             |    DOCKER_VERSION=1.6.0
