@@ -3,7 +3,7 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/joshua-gentess-digital-globe.git";
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
 
 // Jobs
 def codeAnalysisJob = freeStyleJob(projectFolderName + "/codeanalysis-nodeapp")
@@ -38,7 +38,7 @@ buildAppJob.with {
                 url(nodeReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/master")
+            branch("*/develop")
         }
     }
     steps {
@@ -53,7 +53,7 @@ buildAppJob.with {
                 |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker build -t ${DOCKER_REGISTRY}/avs/${project_name}:${B} .
+                |while ! ${JENKINS_HOME}/tools/docker build -t ${DOCKER_REGISTRY}/aowp/${project_name}:${B} .
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker build failed even after ${COUNT}. Please investigate."
@@ -64,7 +64,7 @@ buildAppJob.with {
                 |done
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker push ${DOCKER_REGISTRY}/avs/${project_name}:${B}
+                |while ! ${JENKINS_HOME}/tools/docker push ${DOCKER_REGISTRY}/aowp/${project_name}:${B}
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker push failed even after ${COUNT}. Please investigate."
@@ -75,8 +75,7 @@ buildAppJob.with {
                 |done
                 |
                 |'''.stripMargin())
-        }
-
+    }
     steps {
         systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
     }
@@ -93,11 +92,11 @@ buildAppJob.with {
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/node-questionapp-reference-app")
+                        pattern(projectFolderName + "/aowp-reference-application")
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
-                                pattern("master")
+                                pattern("develop")
                             }
                         }
                     }
