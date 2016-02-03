@@ -1,6 +1,7 @@
 // Folders
 def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
+def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
@@ -28,8 +29,13 @@ pipelineView.with {
     refreshFrequency(5)
 }
 
+// Setup Load_Cartridge
 buildAppJob.with {
     description("Build nodejs reference app")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
     wrappers {
         preBuildCleanup()
     }
@@ -80,10 +86,6 @@ buildAppJob.with {
     steps {
         systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
     }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-    }
     triggers {
         gerrit {
             events {
@@ -110,7 +112,7 @@ buildAppJob.with {
         downstreamParameterized {
             trigger(projectFolderName + "/Code_Analysis") {
                 condition("UNSTABLE_OR_BETTER")
-                parameters{
+                parameters {
                     predefinedProp("B",'${BUILD_NUMBER}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
@@ -119,54 +121,28 @@ buildAppJob.with {
     }
 }
 
-// Setup Load_Cartridge
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('SONAR_PROJECT_KEY', sonarProjectKey)
     }
     wrappers {
         preBuildCleanup()
-        colorizeOutput(colorMap = 'xterm')
-        nodejs('ADOP NodeJS')
     }
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    triggers {
-        gerrit {
-            events {
-                refUpdated()
-            }
-            configure { gerritxml ->
-                gerritxml / 'gerritProjects' {
-                    'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
-                        compareType("PLAIN")
-                        pattern(projectFolderName + "/aowp-reference-application")
-                        'branches' {
-                            'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
-                                compareType("PLAIN")
-                                pattern("develop")
-                            }
-                        }
-                    }
-                }
-                gerritxml / serverName("ADOP Gerrit")
+    steps {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            buildSelector {
+                buildNumber('${B}')
             }
         }
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''|sonar.projectKey=${WORKSPACE_NAME}
-            |sonar.projectName=${WORKSPACE_NAME}
-            |sonar.projectVersion=0.0.1
+            properties('''|sonar.projectKey=${SONAR_PROJECT_KEY}
+            |sonar.projectName=${PROJECT_NAME}
+            |sonar.projectVersion=0.0.${B}
             |sonar.language=js
             |sonar.sources=app/scripts
             |sonar.scm.enabled=false
@@ -251,19 +227,19 @@ functionalTestsJob.with {
 
 securityTestsJob.with{
     description("Tests nodejs reference app with OWASP ZAP")
-    scm{
-        git{
-            remote{
+    scm {
+        git {
+            remote {
                 url(nodeReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
             branch("*/develop")
         }
     }
-    wrappers{
+    wrappers {
         preBuildCleanup()
     }
-    steps{
+    steps {
         shell('''echo "Running automation tests"
                 |
                 |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
@@ -294,10 +270,10 @@ securityTestsJob.with{
                 |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
                 |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties
                 '''.stripMargin())
-        environmentVariables{
+        environmentVariables {
             propertiesFile('maven_variables.properties')
         }
-        maven{
+        maven {
               goals("clean")
               goals('install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}')
               mavenInstallation("ADOP Maven")
@@ -314,7 +290,7 @@ securityTestsJob.with{
                 |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .
                 '''.stripMargin())
     }
-    publishers{
+    publishers {
         archiveArtifacts("*.html")
     }
     configure{myProject ->
@@ -346,7 +322,7 @@ performanceTestsJob.with {
     wrappers {
         preBuildCleanup()
     }
-    environmentVariables{
+    environmentVariables {
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     scm {
@@ -369,7 +345,7 @@ performanceTestsJob.with {
                 '''.stripMargin())
     }
     steps{
-        maven{
+        maven {
             goals("gatling:execute")
             mavenInstallation("ADOP Maven")
         }
