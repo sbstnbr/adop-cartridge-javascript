@@ -330,7 +330,7 @@ automationTestAppJob.with{
     steps{
         maven{
               goals("clean")
-              goals("install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}")
+              goals("install -B -P selenium-tests -DapplicationURL="${VAR_APPLICATION_URL}" -DzapIp="${VAR_ZAP_IP}" -DzapPort="${VAR_ZAP_PORT})
               mavenInstallation("ADOP Maven")
         }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
