@@ -12,8 +12,8 @@ def deployCIJob = freeStyleJob(projectFolderName + "/deploy-nodeCIenv")
 def deployPRODNodeAJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_A")
 def deployPRODNodeBJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_B")
 def functionalTestAppJob = freeStyleJob(projectFolderName + "/funtionaltest-nodeapp")
+def securityTestAppJob = freeStyleJob(projectFolderName + "/securitytest-nodeapp")
 def technicalTestAppJob = freeStyleJob(projectFolderName + "/technicaltest-nodeapp")
-def automationTestAppJob = freeStyleJob(projectFolderName + "/automationtest-nodeapp")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -239,6 +239,96 @@ functionalTestAppJob.with {
     }
     publishers {
         downstreamParameterized {
+            trigger(projectFolderName + "/securitytest-nodeapp") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
+            }
+        }
+    }
+}
+
+securityTestAppJob.with{
+    description("Tests nodejs reference app with OWASP ZAP")
+    scm{
+        git{
+            remote{
+                url(nodeReferenceAppGitUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/develop")
+        }
+    }
+    wrappers{
+        preBuildCleanup()
+    }
+    steps{
+        shell('''echo "Running automation tests"
+                |
+                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
+                |owasp_zap_container=owasp_zap_nodeapp-${ref}
+                |
+                |if [ "${JENKINS_HOME}"/tools/docker top "$owasp_zap_container" &> /dev/null ]
+                |then
+                |    ${JENKINS_HOME}/tools/docker stop $owasp_zap_container
+                |    ${JENKINS_HOME}/tools/docker rm $owasp_zap_container
+                |fi
+                |
+                |echo "Starting OWASP ZAP Intercepting Proxy"
+                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |
+                |echo "Running Selenium tests through maven."
+                |sleep 30s
+                |
+                |# Setting up variables for Maven
+                |environment_ip=$(dig +short aowp-ci.node.adop.consul)
+                |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
+                |
+                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodeapp-ci
+                |VAR_ZAP_IP=$(dig +short jenkins-${node_host_id}.node.adop.consul)
+                |VAR_ZAP_PORT="9090"
+                |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
+                |
+                |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
+                |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
+                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties'''.stripMargin())
+        environmentVariables{
+            propertiesFile('maven_variables.properties')
+        }
+        maven{
+              goals("clean")
+              goals('install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}')
+              mavenInstallation("ADOP Maven")
+        }
+        shell('''echo "Stopping OWASP ZAP Proxy and generating report."
+                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
+                |owasp_zap_container=owasp_zap_nodeapp-${ref}
+                |
+                |${JENKINS_HOME}/tools/docker stop ${owasp_zap_container}
+                |${JENKINS_HOME}/tools/docker rm ${owasp_zap_container}
+                |
+                |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
+                |
+                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .'''.stripMargin())
+    }
+    publishers{
+        archiveArtifacts("*.html")
+    }
+    configure{myProject ->
+        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
+            reportName("HTML Report")
+            reportDir("nodeapp-a/target/failsafe-reports")
+            reportFiles("index.html")
+            alwaysLinkToLastBuild("false")
+            keepAll("false")
+            allowMissing("false")
+            wrapperName("htmlpublisher-wrapper.html")
+        }
+    }
+    publishers {
+        downstreamParameterized {
             trigger(projectFolderName + "/technicaltest-nodeapp") {
                 condition("SUCCESS")
                 parameters {
@@ -281,86 +371,6 @@ technicalTestAppJob.with {
             trigger(projectFolderName + "/deploy-PROD-node_A") {
                 condition("SUCCESS")
             }
-        }
-    }
-}
-
-automationTestAppJob.with{
-    description("Tests nodejs reference app with OWASP ZAP")
-    scm{
-        git{
-            remote{
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
-    wrappers{
-        preBuildCleanup()
-    }
-    steps{
-        shell('''echo "Running automation tests"
-                |
-                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
-                |owasp_zap_container=owasp_zap_nodeapp-${ref}
-                |
-                |if $(${JENKINS_HOME}/tools/docker top $owasp_zap_container &> /dev/null); then
-                |    ${JENKINS_HOME}/tools/docker stop $owasp_zap_container
-                |    ${JENKINS_HOME}/tools/docker rm $owasp_zap_container
-                |fi
-                |
-                |echo "Starting OWASP ZAP Intercepting Proxy"
-                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
-                |
-                |echo "Running Selenium tests through maven."
-                |sleep 30s
-                |
-                |# Setting up variables for Maven
-                |environment_ip=$(dig +short aowp-ci.node.adop.consul)
-                |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
-                |
-                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodeapp-ci
-                |VAR_ZAP_IP=$(dig +short jenkins-${node_host_id}.node.adop.consul)
-                |VAR_ZAP_PORT="9090"
-                |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
-                |
-                |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
-                |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
-                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties'''.stripMargin())
-    }
-    environmentVariables{
-        propertiesFile('maven_variables.properties')
-    }
-    steps{
-        maven{
-              goals("clean")
-              goals('install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}')
-              mavenInstallation("ADOP Maven")
-        }
-        shell('''echo "Stopping OWASP ZAP Proxy and generating report."
-                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
-                |owasp_zap_container=owasp_zap_nodeapp-${ref}
-                |
-                |${JENKINS_HOME}/tools/docker stop ${owasp_zap_container}
-                |${JENKINS_HOME}/tools/docker rm ${owasp_zap_container}
-                |
-                |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
-                |
-                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .'''.stripMargin())
-    }
-    publishers{
-        archiveArtifacts("*.html")
-    }
-    configure{myProject ->
-        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
-            reportName("HTML Report")
-            reportDir("nodeapp-a/target/failsafe-reports")
-            reportFiles("index.html")
-            alwaysLinkToLastBuild("false")
-            keepAll("false")
-            allowMissing("false")
-            wrapperName("htmlpublisher-wrapper.html")
         }
     }
 }
