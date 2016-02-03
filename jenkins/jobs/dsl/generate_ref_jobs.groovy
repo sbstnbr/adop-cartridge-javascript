@@ -270,7 +270,7 @@ technicalTestAppJob.with {
     }
     steps {
         shell('''
-            |sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g"; ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+            |sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g"; \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
             |echo "$STACK_IP"'''.stripMargin())
     }
     steps {
