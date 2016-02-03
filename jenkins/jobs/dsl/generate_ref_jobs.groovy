@@ -50,7 +50,7 @@ buildAppJob.with {
                 |    chmod +x "${JENKINS_HOME}/tools/docker"
                 |fi
                 |
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]')
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
