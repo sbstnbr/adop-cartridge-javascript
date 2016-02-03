@@ -416,9 +416,7 @@ deployToProdNode1Job.with {
                 '''.stripMargin())
     }
     publishers {
-        downstreamParameterized {
-            buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_Node_2")
-        }
+        buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_Node_2")
     }
 }
 
