@@ -122,10 +122,6 @@ buildAppJob.with {
 // Setup Load_Cartridge
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
-    parameters {
-        stringParam("B", '', "Parent build number")
-        stringParam("PARENT_BUILD", "build-nodeapp", "Parent build name")
-    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -284,10 +280,6 @@ technicalTestAppJob.with {
         downstreamParameterized {
             trigger(projectFolderName + "/deploy-PROD-node_A") {
                 condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
             }
         }
     }
