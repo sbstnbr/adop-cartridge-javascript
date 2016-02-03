@@ -166,24 +166,13 @@ codeAnalysisJob.with {
             }
         }
     }
-    steps{
-        shell('''
-            |git config --global url."https://".insteadOf git://
-            |npm install
-            |npm install -g bower
-            |npm install -g grunt-cli
-            |npm install grunt-contrib-imagemin --save-dev
-            |bower install --allow-root
-            |grunt build
-            '''.stripMargin())
-    }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
             properties('''|sonar.projectKey=${WORKSPACE_NAME}
             |sonar.projectName=${WORKSPACE_NAME}
             |sonar.projectVersion=0.0.1
             |sonar.language=js
-            |sonar.sources=scripts
+            |sonar.sources=app/scripts
             |sonar.scm.enabled=false'''.stripMargin())
             javaOpts()
             jdk('(Inherit From Job)')
