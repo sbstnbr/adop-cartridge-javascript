@@ -4,6 +4,7 @@ def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
+def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/gatling-tests.git";
 
 // Jobs
 def codeAnalysisJob = freeStyleJob(projectFolderName + "/codeanalysis-nodeapp")
@@ -261,20 +262,32 @@ technicalTestAppJob.with {
     scm {
         git {
             remote {
-                url(nodeReferenceAppGitUrl)
+                url(gatelingReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
             branch("*/master")
         }
     }
     steps {
-        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g"; ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
-    echo "$STACK_IP"'''.stripMargin())
+        shell('''
+            |sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g"; ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+            |echo "$STACK_IP"'''.stripMargin())
     }
     steps {
         shell('''set +x
       echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"
       '''.stripMargin())
+    }
+    steps{
+        maven{
+            goals("gatling:execute")
+            mavenInstallation("ADOP Maven")
+            }
+    }
+    configure{ myProject ->
+        myProject / publishers << 'io.gatling.jenkins.GatlingPublisher'(plugin: "gatling@1.1.1"){
+            enabled("true")
+            }
     }
     publishers {
         downstreamParameterized {
