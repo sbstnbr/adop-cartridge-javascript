@@ -49,16 +49,23 @@ buildAppJob.with {
         }
     }
     steps {
+        conditionalSteps {
+            condition {
+                shell('test ! -f "${JENKINS_HOME}/tools/docker"')
+            }
+            runner('Fail')
+            steps {
+                shell('''set +x
+                        |DOCKER_VERSION=1.6.0
+                        |mkdir -p ${JENKINS_HOME}/tools
+                        |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
+                        |chmod +x "${JENKINS_HOME}/tools/docker"
+                        |set -x'''.stripMargin())
+            }
+        }
+    }
+    steps {
         shell('''set +x
-                |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
-                |    DOCKER_VERSION=1.6.0
-                |    mkdir -p ${JENKINS_HOME}/tools
-                |    wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
-                |    chmod +x "${JENKINS_HOME}/tools/docker"
-                |fi
-                |
-                |# Cleanup workspace before build an docker image
-                |rm -rf .git
                 |
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
