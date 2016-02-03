@@ -135,17 +135,47 @@ codeAnalysisJob.with {
         colorizeOutput(colorMap = 'xterm')
         nodejs('ADOP NodeJS')
     }
-    steps {
-        copyArtifacts('build-nodeapp') {
-            buildSelector {
-                buildNumber('${B}')
+    scm {
+        git {
+            remote {
+                url(nodeReferenceAppGitUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/develop")
+        }
+    }
+    triggers {
+        gerrit {
+            events {
+                refUpdated()
+            }
+            configure { gerritxml ->
+                gerritxml / 'gerritProjects' {
+                    'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
+                        compareType("PLAIN")
+                        pattern(projectFolderName + "/aowp-reference-application")
+                        'branches' {
+                            'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
+                                compareType("PLAIN")
+                                pattern("develop")
+                            }
+                        }
+                    }
+                }
+                gerritxml / serverName("ADOP Gerrit")
             }
         }
     }
     steps{
         shell('''
-            |unzip dist.zip
-    '''.stripMargin())
+            |git config --global url."https://".insteadOf git://
+            |npm install
+            |npm install -g bower
+            |npm install -g grunt-cli
+            |npm install grunt-contrib-imagemin --save-dev
+            |bower install --allow-root
+            |grunt build
+            '''.stripMargin())
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
