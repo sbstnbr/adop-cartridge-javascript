@@ -120,7 +120,6 @@ buildAppJob.with {
         }
     }
     publishers {
-        archiveArtifacts("dist.zip")
         downstreamParameterized {
             trigger(projectFolderName + "/codeanalysis-nodeapp") {
                 condition("UNSTABLE_OR_BETTER")
