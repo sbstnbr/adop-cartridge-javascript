@@ -54,7 +54,7 @@ buildAppJob.with {
                 |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker build -t docker.accenture.com/aowp/${project_name}:${B} .
+                |while ! ${JENKINS_HOME}/tools/docker build -t docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER} .
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker build failed even after ${COUNT}. Please investigate."
@@ -65,7 +65,7 @@ buildAppJob.with {
                 |done
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker push docker.accenture.com/aowp/${project_name}:${B}
+                |while ! ${JENKINS_HOME}/tools/docker push docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER}
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker push failed even after ${COUNT}. Please investigate."
