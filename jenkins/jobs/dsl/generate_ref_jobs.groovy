@@ -57,6 +57,9 @@ buildAppJob.with {
                 |    chmod +x "${JENKINS_HOME}/tools/docker"
                 |fi
                 |
+                |# Cleanup workspace before build an docker image
+                |rm -rf .git
+                |
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
@@ -109,6 +112,7 @@ buildAppJob.with {
         }
     }
     publishers {
+        archiveArtifacts("app/scripts/**/*")
         downstreamParameterized {
             trigger(projectFolderName + "/Code_Analysis") {
                 condition("UNSTABLE_OR_BETTER")
