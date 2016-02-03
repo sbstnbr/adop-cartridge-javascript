@@ -1,1 +1,2 @@
-git@innersource.accenture.com:adop-b-framework-avs/java-reference-app.git
+ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git
+ssh://git@uat.alm.accenture.com/ado7/environment_template.git
