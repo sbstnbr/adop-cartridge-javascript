@@ -13,6 +13,7 @@ def deployPRODNodeAJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_A")
 def deployPRODNodeBJob = freeStyleJob(projectFolderName + "/deploy-PROD-node_B")
 def functionalTestAppJob = freeStyleJob(projectFolderName + "/funtionaltest-nodeapp")
 def technicalTestAppJob = freeStyleJob(projectFolderName + "/technicaltest-nodeapp")
+def automationTestAppJob = freeStyleJob(projectFolderName + "/automationtest-nodeapp")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -262,6 +263,103 @@ technicalTestAppJob.with {
     }
 }
 
+automationTestAppJob.with{
+    description("Tests nodejs reference app with OWASP ZAP")
+    scm{
+        git{
+            remote{
+                url(nodeReferenceAppGitUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/master")
+        }
+    }
+    wrappers{
+        preBuildCleanup()
+    }
+    steps{
+        conditionalSteps{
+            condition{
+                shell('''set +x
+                        |test ! -f "${JENKINS_HOME}/tools/devops_tools/docker"
+                        |set -x'''.stripMargin())
+            }
+            runner('Fail')
+            steps{
+                shell('''set +x
+                        |DOCKER_VERSION=1.6.0
+                        |mkdir "${JENKINS_HOME}/tools/devops_tools"
+                        |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/devops_tools/docker"
+                        |chmod +x "${JENKINS_HOME}/tools/devops_tools/docker"
+                        |set -x'''.stripMargin())
+            }
+        }
+        shell('''export docker="${JENKINS_HOME}/tools/devops_tools/docker"
+                |echo "Running automation tests"
+                |
+                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
+                |owasp_zap_container=owasp_zap_nodeapp-${ref}
+                |
+                |if $(docker top $owasp_zap_container &> /dev/null); then
+                |    docker stop $owasp_zap_container
+                |    docker rm $owasp_zap_container
+                |fi
+                |
+                |echo "Starting OWASP ZAP Intercepting Proxy"
+                |nohup docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |
+                |echo "Running Selenium tests through maven."
+                |sleep 30s
+                |
+                |# Setting up variables for Maven
+                |environment_ip=$(dig +short aowp-ci.node.adop.consul)
+                |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
+                |
+                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodeapp-ci
+                |VAR_ZAP_IP=$(dig +short jenkins-${node_host_id}.node.adop.consul)
+                |VAR_ZAP_PORT="9090"
+                |VAR_ZAP_PORT=$(docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
+                |
+                |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
+                |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
+                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties'''.stripMargin())
+    }
+    environmentVariables{
+        propertiesFile('maven_variables.properties')
+    }
+    steps{
+        maven{
+              goals("clean")
+              goals("install -B -P selenium-tests -DapplicationURL='${VAR_APPLICATION_URL}' -DzapIp='${VAR_ZAP_IP}' -DzapPort='${VAR_ZAP_PORT}'")
+              mavenInstallation("ADOP Maven")
+        }
+        shell('''echo "Stopping OWASP ZAP Proxy and generating report."
+                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
+                |owasp_zap_container=owasp_zap_nodeapp-${ref}
+                |
+                |docker stop ${owasp_zap_container}
+                |docker rm ${owasp_zap_container}
+                |
+                |docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
+                |
+                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .'''.stripMargin())
+    }
+    publishers{
+        archiveArtifacts("*.html")
+    }
+    configure{myProject ->
+        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
+            reportName("HTML Report")
+            reportDir("nodeapp-a/target/failsafe-reports")
+            reportFiles("index.html")
+            alwaysLinkToLastBuild("false")
+            keepAll("false")
+            allowMissing("false")
+            wrapperName("htmlpublisher-wrapper.html")
+        }
+    }
+}
+
 deployPRODNodeAJob.with {
     description("Deploy nodejs reference app to Node A")
     wrappers {
@@ -284,9 +382,9 @@ deployPRODNodeAJob.with {
       scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
       ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
       ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
-      
+
       scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
-      
+
       ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
       '''.stripMargin())
     }
