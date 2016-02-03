@@ -3,7 +3,7 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/joshua-gentess-digital-globe.git"
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/joshua-gentess-digital-globe.git";
 
 // Jobs
 def codeAnalysisJob = freeStyleJob(projectFolderName + "/codeanalysis-nodeapp")
@@ -31,8 +31,6 @@ buildAppJob.with {
     description("Build nodejs reference app")
     wrappers {
         preBuildCleanup()
-        colorizeOutput(colorMap = 'xterm')
-        nodejs('ADOP NodeJS')
     }
     scm {
         git {
@@ -40,43 +38,43 @@ buildAppJob.with {
                 url(nodeReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/develop")
+            branch("*/master")
         }
     }
     steps {
         shell('''set +x
-            |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
-            |    DOCKER_VERSION=1.6.0
-            |    mkdir -p ${JENKINS_HOME}/tools
-            |    wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
-            |    chmod +x "${JENKINS_HOME}/tools/docker"
-            |fi
-            |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]')
-            |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
-            |
-            |COUNT=1
-            |while ! ${JENKINS_HOME}/tools/docker build -t ${DOCKER_REGISTRY}/avs/${project_name}:${B} .
-            |do
-            |  if [ ${COUNT} -gt 10 ]; then
-            |      echo "Docker build failed even after ${COUNT}. Please investigate."
-            |      exit 1
-            |    fi
-            |    echo "Docker build failed. Retrying ..Attempt (${COUNT})"
-            |  COUNT=$((COUNT+1))
-            |done
-            |
-            |COUNT=1
-            |while ! ${JENKINS_HOME}/tools/docker push ${DOCKER_REGISTRY}/avs/${project_name}:${B}
-            |do
-            |  if [ ${COUNT} -gt 10 ]; then
-            |      echo "Docker push failed even after ${COUNT}. Please investigate."
-            |      exit 1
-            |    fi
-            |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
-            |  COUNT=$((COUNT+1))
-            |done
-            |           
-            |'''.stripMargin())
+                |if [ ! -f "${JENKINS_HOME}/tools/docker" ]; then
+                |    DOCKER_VERSION=1.6.0
+                |    mkdir -p ${JENKINS_HOME}/tools
+                |    wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
+                |    chmod +x "${JENKINS_HOME}/tools/docker"
+                |fi
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]')
+                |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
+                |
+                |COUNT=1
+                |while ! ${JENKINS_HOME}/tools/docker build -t ${DOCKER_REGISTRY}/avs/${project_name}:${B} .
+                |do
+                |  if [ ${COUNT} -gt 10 ]; then
+                |      echo "Docker build failed even after ${COUNT}. Please investigate."
+                |      exit 1
+                |    fi
+                |    echo "Docker build failed. Retrying ..Attempt (${COUNT})"
+                |  COUNT=$((COUNT+1))
+                |done
+                |
+                |COUNT=1
+                |while ! ${JENKINS_HOME}/tools/docker push ${DOCKER_REGISTRY}/avs/${project_name}:${B}
+                |do
+                |  if [ ${COUNT} -gt 10 ]; then
+                |      echo "Docker push failed even after ${COUNT}. Please investigate."
+                |      exit 1
+                |    fi
+                |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
+                |  COUNT=$((COUNT+1))
+                |done
+                |
+                |'''.stripMargin())
         }
 
     steps {
@@ -99,7 +97,7 @@ buildAppJob.with {
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
-                                pattern("develop")
+                                pattern("master")
                             }
                         }
                     }
@@ -255,7 +253,7 @@ technicalTestAppJob.with {
         }
     }
     steps {
-        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g"; ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
     echo "$STACK_IP"'''.stripMargin())
     }
     steps {
@@ -291,35 +289,18 @@ automationTestAppJob.with{
         preBuildCleanup()
     }
     steps{
-        conditionalSteps{
-            condition{
-                shell('''set +x
-                        |test ! -f "${JENKINS_HOME}/tools/devops_tools/docker"
-                        |set -x'''.stripMargin())
-            }
-            runner('Fail')
-            steps{
-                shell('''set +x
-                        |DOCKER_VERSION=1.6.0
-                        |mkdir "${JENKINS_HOME}/tools/devops_tools"
-                        |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/devops_tools/docker"
-                        |chmod +x "${JENKINS_HOME}/tools/devops_tools/docker"
-                        |set -x'''.stripMargin())
-            }
-        }
-        shell('''export docker="${JENKINS_HOME}/tools/devops_tools/docker"
-                |echo "Running automation tests"
+        shell('''echo "Running automation tests"
                 |
                 |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
                 |owasp_zap_container=owasp_zap_nodeapp-${ref}
                 |
-                |if $(docker top $owasp_zap_container &> /dev/null); then
-                |    docker stop $owasp_zap_container
-                |    docker rm $owasp_zap_container
+                |if $(${JENKINS_HOME}/tools/docker top $owasp_zap_container &> /dev/null); then
+                |    ${JENKINS_HOME}/tools/docker stop $owasp_zap_container
+                |    ${JENKINS_HOME}/tools/docker rm $owasp_zap_container
                 |fi
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
-                |nohup docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
                 |
                 |echo "Running Selenium tests through maven."
                 |sleep 30s
@@ -331,7 +312,7 @@ automationTestAppJob.with{
                 |VAR_APPLICATION_URL=http://${environment_ip}:80/nodeapp-ci
                 |VAR_ZAP_IP=$(dig +short jenkins-${node_host_id}.node.adop.consul)
                 |VAR_ZAP_PORT="9090"
-                |VAR_ZAP_PORT=$(docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
+                |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
                 |
                 |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
                 |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
@@ -343,17 +324,17 @@ automationTestAppJob.with{
     steps{
         maven{
               goals("clean")
-              goals("install -B -P selenium-tests -DapplicationURL="${VAR_APPLICATION_URL}" -DzapIp="${VAR_ZAP_IP}" -DzapPort="${VAR_ZAP_PORT})
+              goals('install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}')
               mavenInstallation("ADOP Maven")
         }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
                 |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
                 |owasp_zap_container=owasp_zap_nodeapp-${ref}
                 |
-                |docker stop ${owasp_zap_container}
-                |docker rm ${owasp_zap_container}
+                |${JENKINS_HOME}/tools/docker stop ${owasp_zap_container}
+                |${JENKINS_HOME}/tools/docker rm ${owasp_zap_container}
                 |
-                |docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
+                |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .'''.stripMargin())
     }
