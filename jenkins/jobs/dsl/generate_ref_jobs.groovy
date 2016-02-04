@@ -134,6 +134,10 @@ buildAppJob.with {
 
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -178,6 +182,10 @@ codeAnalysisJob.with {
 
 deployToCIEnvJob.with {
     description("Deploy CI Environment Job")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -221,6 +229,10 @@ deployToCIEnvJob.with {
 
 functionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -264,6 +276,13 @@ functionalTestsJob.with {
 
 securityTestsJob.with{
     description("Tests nodejs reference app with OWASP ZAP")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
+    wrappers {
+        preBuildCleanup()
+    }
     scm {
         git {
             remote {
