@@ -5,7 +5,7 @@ def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
-def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/gatling-tests.git";
+def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -189,7 +189,8 @@ deployToCIEnvJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-        }
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -207,11 +208,17 @@ deployToCIEnvJob.with {
     steps {
         shell('''set +x
                 |CI_HOST="aowp-ci.node.consul"
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
                 |# Copy the docker-compose configuration file on CI host
                 |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${CI_HOST}:~/docker-compose.yml
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
+                |# Run docker-compose.test.yml on CI host
                 |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
+                |
                 |echo "Deploy to CI environment completed"
+                |echo "http://${project_name}-ci.${STACK_IP}.xip.io"
+                |
                 |set -x'''.stripMargin())
     }
     publishers {
@@ -254,10 +261,14 @@ functionalTestsJob.with {
     steps {
         shell('''set +x
                 |CI_HOST="aowp-ci.node.consul"
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
                 |# Copy the docker-compose configuration file on CI host
                 |scp -o StrictHostKeyChecking=no docker-compose.test.yml ec2-user@${CI_HOST}:~/docker-compose.test.yml
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
-                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -f docker-compose.test.yml --force-recreate"
+                |
+                |# Run docker-compose.test.yml on CI host
+                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose -f docker-compose.test.yml up --force-recreate"
+                |
                 |echo "Functional tests completed."
                 |set -x'''.stripMargin())
     }
@@ -394,6 +405,8 @@ performanceTestsJob.with {
         preBuildCleanup()
     }
     environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     scm {
@@ -406,7 +419,8 @@ performanceTestsJob.with {
         }
     }
     steps {
-        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/nodeapp\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+        shell('''project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/${project_name}-ci\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
                 |echo "$STACK_IP"
                 '''.stripMargin())
     }
@@ -442,6 +456,7 @@ deployToProdNode1Job.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     wrappers {
         preBuildCleanup()
@@ -460,11 +475,17 @@ deployToProdNode1Job.with {
     steps {
         shell('''set +x
                 |AOWP1_HOST="aowp1.node.consul"
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
                 |# Copy the docker-compose configuration file on AOWP1 host
                 |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP1_HOST}:~/docker-compose.yml
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
+                |# Run docker-compose.yml on PROD1 host
                 |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP1_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |echo "Deploy to AOWP1 environment completed"
+                |
+                |echo "Deploy to PROD1 environment completed"
+                |echo "http://${project_name}-1.${STACK_IP}.xip.io"
+                |
                 |set -x'''.stripMargin())
     }
     publishers {
@@ -484,12 +505,13 @@ deployToProdNode1Job.with {
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
     parameters {
-        predefinedProp("B", '${BUILD_NUMBER}')
-        predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     wrappers {
         preBuildCleanup()
@@ -508,11 +530,17 @@ deployToProdNode2Job.with {
     steps {
         shell('''set +x
                 |AOWP2_HOST="aowp2.node.consul"
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
                 |# Copy the docker-compose configuration file on AOWP2 host
                 |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP2_HOST}:~/docker-compose.yml
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |
+                |# Run docker-compose.yml on PROD2 host
                 |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP2_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |echo "Deploy to AOWP2 environment completed"
+                |
+                |echo "Deploy to PROD2 environment completed"
+                |echo "http://${project_name}-2.${STACK_IP}.xip.io"
+                |
                 |set -x'''.stripMargin())
     }
 }
