@@ -494,8 +494,8 @@ deployToProdNode1Job.with {
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
     parameters {
-        predefinedProp("B", '${BUILD_NUMBER}')
-        predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
