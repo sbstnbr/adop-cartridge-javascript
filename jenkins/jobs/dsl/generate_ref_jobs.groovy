@@ -181,7 +181,7 @@ deployToCIEnvJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-    }
+        }
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -221,26 +221,33 @@ deployToCIEnvJob.with {
 
 functionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
     wrappers {
         preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
     }
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
+    steps {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            includePatterns('docker-compose*.yml')
+            buildSelector {
+                buildNumber('${B}')
             }
-            branch("*/master")
         }
     }
     steps {
         shell('''set +x
-                |git config --global url."https://".insteadOf git://
-                |echo $PATH
-                |npm cache clean
-                |npm install -g grunt grunt-cli --save-dev
-                |grunt test || exit 0
-                '''.stripMargin())
+                |CI_HOST="aowp-ci.node.consul"
+                |# Copy the docker-compose configuration file on CI host
+                |scp -o StrictHostKeyChecking=no docker-compose.test.yml ec2-user@${CI_HOST}:~/docker-compose.test.yml
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -f docker-compose.test.yml --force-recreate"
+                |echo "Functional tests completed."
+                |set -x'''.stripMargin())
     }
     publishers {
         downstreamParameterized {
