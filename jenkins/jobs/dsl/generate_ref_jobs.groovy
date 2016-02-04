@@ -134,6 +134,10 @@ buildAppJob.with {
 
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -178,6 +182,10 @@ codeAnalysisJob.with {
 
 deployToCIEnvJob.with {
     description("Deploy CI Environment Job")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -221,6 +229,10 @@ deployToCIEnvJob.with {
 
 functionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     wrappers {
         preBuildCleanup()
     }
@@ -257,6 +269,13 @@ functionalTestsJob.with {
 
 securityTestsJob.with{
     description("Tests nodejs reference app with OWASP ZAP")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
+    wrappers {
+        preBuildCleanup()
+    }
     scm {
         git {
             remote {
@@ -265,9 +284,6 @@ securityTestsJob.with{
             }
             branch("*/develop")
         }
-    }
-    wrappers {
-        preBuildCleanup()
     }
     steps {
         shell('''echo "Running automation tests"
@@ -349,6 +365,10 @@ securityTestsJob.with{
 
 performanceTestsJob.with {
     description("Run technical tests fot nodejs reference app")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     wrappers {
         preBuildCleanup()
     }
@@ -394,6 +414,10 @@ performanceTestsJob.with {
 
 deployToProdNode1Job.with {
     description("Deploy nodejs reference app to Node A")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     wrappers {
         preBuildCleanup()
     }
@@ -426,6 +450,10 @@ deployToProdNode1Job.with {
 
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     wrappers {
         preBuildCleanup()
     }
