@@ -394,59 +394,72 @@ performanceTestsJob.with {
 
 deployToProdNode1Job.with {
     description("Deploy nodejs reference app to Node A")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
     wrappers {
         preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
     }
     steps {
-        copyArtifacts('build-nodeapp') {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            includePatterns('docker-compose*.yml')
             buildSelector {
                 buildNumber('${B}')
             }
         }
     }
     steps {
-        shell('''#git clone ssh://jenkins@gerrit.service.adop.consul:29418/chef_project
-                |#cp $WORKSPACE/chef_project/academy_key.pem $WORKSPACE
-                |#rm -rf chef_project
-                |#chmod 400 academy_key.pem
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp; rm -rf /data/nodeapp/api/*;'"
-                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
-                |#
-                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
-                |#
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
-                '''.stripMargin())
+        shell('''set +x
+                |AOWP1_HOST="aowp1.node.consul"
+                |# Copy the docker-compose configuration file on AOWP1 host
+                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP1_HOST}:~/docker-compose.yml
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP1_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
+                |echo "Deploy to AOWP1 environment completed"
+                |set -x'''.stripMargin())
     }
     publishers {
-        buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_Node_2")
+        downstreamParameterized {
+            trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
+                condition("SUCCESS")
+            }
+        }
+        
     }
 }
 
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
     wrappers {
         preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
     }
     steps {
-        copyArtifacts('build-nodeapp') {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            includePatterns('docker-compose*.yml')
             buildSelector {
                 buildNumber('${B}')
             }
         }
     }
     steps {
-        shell('''#git clone ssh://jenkins@gerrit.service.adop.consul:29418/chef_project
-                |#cp $WORKSPACE/chef_project/academy_key.pem $WORKSPACE
-                |#rm -rf chef_project
-                |#chmod 400 academy_key.pem
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp; rm -rf /data/nodeapp/api/*;'"
-                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/api.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/api
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/api; unzip api.zip; rm -rf api.zip'"
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'chmod -R 777 /data/nodeapp/dist; rm -rf /data/nodeapp/dist/*;'"
-                |#scp -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \$WORKSPACE/dist.zip ec2-user@aowp1.service.adop.consul:/data/nodeapp/dist
-                |#ssh -i academy_key.pem -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -tt ec2-user@aowp1.service.adop.consul "/usr/bin/sudo bash -c 'cd /data/nodeapp/dist; unzip dist.zip; rm -rf dist.zip; docker restart ADOP-NodeApp-1'"
-                '''.stripMargin())
+        shell('''set +x
+                |AOWP2_HOST="aowp2.node.consul"
+                |# Copy the docker-compose configuration file on AOWP2 host
+                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP2_HOST}:~/docker-compose.yml
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP2_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
+                |echo "Deploy to AOWP2 environment completed"
+                |set -x'''.stripMargin())
     }
 }
