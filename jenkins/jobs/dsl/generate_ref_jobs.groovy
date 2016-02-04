@@ -270,6 +270,15 @@ securityTestsJob.with{
         preBuildCleanup()
     }
     steps {
+        conditionalSteps{
+            condition("test ! -f /usr/bin/dig")
+            runner("Fail")
+            steps{
+                shell('''wget ftp://195.220.108.108/linux/fedora/linux/updates/23/x86_64/b/bind-utils-9.10.3-10.P3.fc23.x86_64.rpm -P ${JENKINS_HOME}/tools/bind-utils
+                        |rpm -ivh ${JENKINS_HOME}/tools/bind-utils/bind*.rpm
+                        '''.stripMargin())
+            }
+        }
         shell('''echo "Running automation tests"
                 |
                 |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
@@ -428,7 +437,7 @@ deployToProdNode1Job.with {
                 condition("SUCCESS")
             }
         }
-        
+
     }
 }
 
