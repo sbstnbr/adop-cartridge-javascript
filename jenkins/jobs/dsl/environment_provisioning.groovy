@@ -3,7 +3,7 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def environmentTemplateGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/environment_template"
+def environmentTemplateGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template"
 
 // Jobs
 def environmentProvisioningPipelineView = buildPipelineView(projectFolderName + "/Environment_Provisioning")
@@ -266,10 +266,10 @@ nginx_public_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}-public.conf"
 
 for node_name in ${node_names_list[@]}; do
     nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME_LOWERCASE}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
-    ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "sudo rm /data/nginx/configuration/sites-enabled/${nginx_sites_enabled_file}"
+    ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx "sudo rm /data/nginx/configuration/sites-enabled/${nginx_sites_enabled_file}"
 done
 
-ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "\
+ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx "\
 sudo rm /data/nginx/configuration/sites-enabled/${nginx_main_env_conf} \
 && sudo rm /data/nginx/configuration/sites-enabled/${nginx_public_env_conf}; \
 sudo docker exec ADOP-NGINX /usr/sbin/nginx -s reload;"
