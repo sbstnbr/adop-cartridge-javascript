@@ -119,7 +119,7 @@ buildAppJob.with {
         }
     }
     publishers {
-        archiveArtifacts("app/scripts/**/*")
+        archiveArtifacts("app/scripts/**/*, docker-compose*.yml")
         downstreamParameterized {
             trigger(projectFolderName + "/Code_Analysis") {
                 condition("UNSTABLE_OR_BETTER")
@@ -187,6 +187,12 @@ deployToCIEnvJob.with {
         injectPasswords()
         maskPasswords()
         sshAgent("adop-jenkins-master")
+    }
+    copyArtifacts(projectFolderName + "/Build_App") {
+        includePatterns('docker-compose*.yml')
+        buildSelector {
+            buildNumber('${B}')
+        }
     }
     steps {
         shell('''set +x
