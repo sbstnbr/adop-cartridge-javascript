@@ -230,6 +230,18 @@ destroyEnvironmentJob.with{
     steps {
         shell('''#!/bin/bash -e
 
+node_names_list=(NodeAppCI NodeApp1 NodeApp2)
+
+# Unregister Consul
+echo "Unregistering consul"
+for node_name in ${node_names_list[@]}; do
+    consul_instance_name=$(echo ${FULL_ENVIRONMENT_NAME}-${node_name} | tr '[:upper:]' '[:lower:]')
+    echo "Removing container for ${consul_instance_name}"
+    ssh-keygen -R "${consul_instance_name}.node.consul"
+    id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
+    ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
+done
+
 # Delete the stack
 environment_stack_name="${VPC_ID}-${FULL_ENVIRONMENT_NAME}"
 ${JENKINS_HOME}/tools/.aws/bin/aws cloudformation delete-stack --stack-name ${environment_stack_name}
@@ -257,8 +269,20 @@ else
 fi
 
 # Remove entry from Nginx
-#nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME}.conf"
-#ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "sudo rm /data/nginx/configuration/sites-enabled/${nginx_sites_enabled_file}; sudo docker exec ADOP-NGINX /usr/sbin/nginx -s reload;"
+echo "Deleting Nginx configuration"
+FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]' '[:lower:]')
+nginx_main_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}.conf"
+nginx_public_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}-public.conf"
+
+for node_name in ${node_names_list[@]}; do
+    nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME_LOWERCASE}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
+    ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "sudo rm /data/nginx/configuration/sites-enabled/${nginx_sites_enabled_file}"
+done
+
+ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "\
+sudo rm /data/nginx/configuration/sites-enabled/${nginx_main_env_conf} \
+&& sudo rm /data/nginx/configuration/sites-enabled/${nginx_public_env_conf}; \
+sudo docker exec ADOP-NGINX /usr/sbin/nginx -s reload;"
 ''')
     }
 }
