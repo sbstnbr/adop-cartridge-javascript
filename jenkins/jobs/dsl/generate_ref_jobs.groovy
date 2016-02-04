@@ -134,6 +134,10 @@ buildAppJob.with {
 
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -178,10 +182,14 @@ codeAnalysisJob.with {
 
 deployToCIEnvJob.with {
     description("Deploy CI Environment Job")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-    }
+        }
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -221,26 +229,37 @@ deployToCIEnvJob.with {
 
 functionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
     wrappers {
         preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
     }
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
+    steps {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            includePatterns('docker-compose*.yml')
+            buildSelector {
+                buildNumber('${B}')
             }
-            branch("*/master")
         }
     }
     steps {
         shell('''set +x
-                |git config --global url."https://".insteadOf git://
-                |echo $PATH
-                |npm cache clean
-                |npm install -g grunt grunt-cli --save-dev
-                |grunt test || exit 0
-                '''.stripMargin())
+                |CI_HOST="aowp-ci.node.consul"
+                |# Copy the docker-compose configuration file on CI host
+                |scp -o StrictHostKeyChecking=no docker-compose.test.yml ec2-user@${CI_HOST}:~/docker-compose.test.yml
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -f docker-compose.test.yml --force-recreate"
+                |echo "Functional tests completed."
+                |set -x'''.stripMargin())
     }
     publishers {
         downstreamParameterized {
@@ -257,6 +276,10 @@ functionalTestsJob.with {
 
 securityTestsJob.with{
     description("Tests nodejs reference app with OWASP ZAP")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     scm {
         git {
             remote {
@@ -373,6 +396,10 @@ securityTestsJob.with{
 
 performanceTestsJob.with {
     description("Run technical tests fot nodejs reference app")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     wrappers {
         preBuildCleanup()
     }
@@ -418,6 +445,10 @@ performanceTestsJob.with {
 
 deployToProdNode1Job.with {
     description("Deploy nodejs reference app to Node A")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -450,6 +481,10 @@ deployToProdNode1Job.with {
         downstreamParameterized {
             trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
                 condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
             }
         }
 
@@ -458,6 +493,10 @@ deployToProdNode1Job.with {
 
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
+    parameters {
+        predefinedProp("B", '${BUILD_NUMBER}')
+        predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
