@@ -291,9 +291,6 @@ securityTestsJob.with{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
     }
-    wrappers {
-        preBuildCleanup()
-    }
     scm {
         git {
             remote {
@@ -309,12 +306,25 @@ securityTestsJob.with{
     steps {
         conditionalSteps{
             condition{
-                shell("test ! -f /usr/bin/dig")
+                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
             }
             runner("Fail")
             steps{
-                shell('''wget ftp://195.220.108.108/linux/fedora/linux/updates/23/x86_64/b/bind-utils-9.10.3-10.P3.fc23.x86_64.rpm -P ${JENKINS_HOME}/tools/bind-utils
-                        |rpm -ivh ${JENKINS_HOME}/tools/bind-utils/bind*.rpm
+                shell('''set +x
+                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
+                        |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
+                        |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
+                        |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
+                        |set -x
+                        '''.stripMargin())
+            }
+            condition{
+                shell('test ! -f "${JENKINS_HOME}/tools/jq"')
+            }
+            runner('Fail')
+            steps{
+                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
+                        |chmod +x "${JENKINS_HOME}/tools/jq"
                         '''.stripMargin())
             }
         }
@@ -336,11 +346,11 @@ securityTestsJob.with{
                 |sleep 30s
                 |
                 |# Setting up variables for Maven
-                |environment_ip=$(dig +short aowp-ci.node.adop.consul)
+                |environment_ip=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`NodeJSEnvCartridge-Ref`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
                 |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
                 |
-                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodeapp-ci
-                |VAR_ZAP_IP=$(dig +short jenkins-${node_host_id}.node.adop.consul)
+                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodejsenvcartridge-ref-ci
+                |VAR_ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`ADOP-CORE`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue')
                 |VAR_ZAP_PORT="9090"
                 |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
                 |
