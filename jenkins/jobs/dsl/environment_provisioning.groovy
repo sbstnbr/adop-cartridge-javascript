@@ -177,7 +177,7 @@ ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "sud
                 url("${environmentTemplateGitUrl}")
                 credentials("adop-jenkins-master")
             }
-            branch("*/feature/DA-1507")
+            branch("*/master")
         }
     }
     publishers {
