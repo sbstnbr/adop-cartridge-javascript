@@ -53,7 +53,6 @@ createEnvironmentJob.with{
                         |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
                         |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
                         |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
-                        |export AWS_DEFAULT_REGION="eu-west-1"
                         |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
                         |set -x'''.stripMargin())
             }
@@ -75,6 +74,10 @@ createEnvironmentJob.with{
     }
     steps {
         shell('''#!/bin/bash -ex
+
+#HACK NOT ENTIRELY HAPPY ABOUT THIS BEING HARDCODED
+#TODO: FIX THIS
+export AWS_DEFAULT_REGION="eu-west-1"
 
 # Token constants
 TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
