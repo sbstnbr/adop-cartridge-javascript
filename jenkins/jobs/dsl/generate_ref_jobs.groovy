@@ -207,7 +207,8 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
-                |CI_HOST="aowp-ci.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -217,7 +218,7 @@ deployToCIEnvJob.with {
                 |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
                 |
                 |echo "Deploy to CI environment completed"
-                |echo "http://${project_name}-ci.${STACK_IP}.xip.io"
+                |echo "http://${NAMESPACE}-ci.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
     }
@@ -260,7 +261,8 @@ functionalTestsJob.with {
     }
     steps {
         shell('''set +x
-                |CI_HOST="aowp-ci.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -484,7 +486,8 @@ deployToProdNode1Job.with {
     }
     steps {
         shell('''set +x
-                |AOWP1_HOST="aowp1.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |AOWP1_HOST="${NAMESPACE}-NodeApp1.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on AOWP1 host
@@ -494,7 +497,7 @@ deployToProdNode1Job.with {
                 |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP1_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
                 |
                 |echo "Deploy to PROD1 environment completed"
-                |echo "http://${project_name}-1.${STACK_IP}.xip.io"
+                |echo "http://${NAMESPACE}-1.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
     }
@@ -539,7 +542,8 @@ deployToProdNode2Job.with {
     }
     steps {
         shell('''set +x
-                |AOWP2_HOST="aowp2.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |AOWP2_HOST="${NAMESPACE}-NodeApp2.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on AOWP2 host
@@ -549,7 +553,7 @@ deployToProdNode2Job.with {
                 |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP2_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
                 |
                 |echo "Deploy to PROD2 environment completed"
-                |echo "http://${project_name}-2.${STACK_IP}.xip.io"
+                |echo "http://${NAMESPACE}-2.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
     }
