@@ -207,7 +207,7 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
                 |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
@@ -261,7 +261,7 @@ functionalTestsJob.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
                 |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
@@ -486,7 +486,7 @@ deployToProdNode1Job.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
                 |AOWP1_HOST="${NAMESPACE}-NodeApp1.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
@@ -542,7 +542,7 @@ deployToProdNode2Job.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
                 |AOWP2_HOST="${NAMESPACE}-NodeApp2.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
