@@ -56,7 +56,7 @@ buildAppJob.with {
             runner('Fail')
             steps {
                 shell('''set +x
-                        |DOCKER_VERSION=1.6.0
+                        |DOCKER_VERSION=1.7.1
                         |mkdir -p ${JENKINS_HOME}/tools
                         |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
                         |chmod +x "${JENKINS_HOME}/tools/docker"
@@ -178,14 +178,25 @@ codeAnalysisJob.with {
 
 deployToCIEnvJob.with {
     description("Deploy CI Environment Job")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
     wrappers {
         preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
     }
     steps {
         shell('''set +x
-                |sleep 12
+                |CI_HOST="aowp-ci.node.consul"
+                |# Copy the docker-compose configuration file on CI host
+                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${CI_HOST}:~/docker-compose.yml
+                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
                 |echo "Deploy to CI environment completed"
-                '''.stripMargin())
+                |set -x'''.stripMargin())
     }
     publishers {
         downstreamParameterized {
@@ -351,9 +362,7 @@ performanceTestsJob.with {
                 '''.stripMargin())
     }
     steps {
-        shell('''set +x
-                |echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"
-                '''.stripMargin())
+        shell('''echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"'''.stripMargin())
     }
     steps{
         maven {
