@@ -207,7 +207,8 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
-                |CI_HOST="aowp-ci.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
+                |CI_HOST="${NAMESPACE}-NodeApp-CI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -260,7 +261,8 @@ functionalTestsJob.with {
     }
     steps {
         shell('''set +x
-                |CI_HOST="aowp-ci.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
+                |CI_HOST="${NAMESPACE}-NodeApp-CI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -484,7 +486,8 @@ deployToProdNode1Job.with {
     }
     steps {
         shell('''set +x
-                |AOWP1_HOST="aowp1.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
+                |AOWP1_HOST="${NAMESPACE}-NodeApp1.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on AOWP1 host
@@ -539,7 +542,8 @@ deployToProdNode2Job.with {
     }
     steps {
         shell('''set +x
-                |AOWP2_HOST="aowp2.node.consul"
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
+                |AOWP2_HOST="${NAMESPACE}-NodeApp2.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on AOWP2 host
