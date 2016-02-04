@@ -4,8 +4,8 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
-def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-reference-application.git";
+def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -36,6 +36,7 @@ buildAppJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
     }
@@ -172,7 +173,7 @@ codeAnalysisJob.with {
             trigger(projectFolderName + "/Deploy_To_CI_ENV") {
                 condition("UNSTABLE_OR_BETTER")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
                 }
             }

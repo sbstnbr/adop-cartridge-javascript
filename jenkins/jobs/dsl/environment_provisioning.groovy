@@ -28,6 +28,7 @@ createEnvironmentJob.with{
         stringParam("VPC_ID","","The ID of the AWS VPC to create the environment in, e.g. vpc-a123b456")
         stringParam("DEFAULT_APP_SECURITY_GROUP_ID","","The ID of the AWS default application SG to attach the environment to (used for Consul etc.), e.g. sg-a123b456")
     }
+    label("docker")
     environmentVariables {
         env('WORKSPACE_NAME',workspaceFolderName)
         env('PROJECT_NAME',projectFolderName)
@@ -42,21 +43,6 @@ createEnvironmentJob.with{
         }
     }
     steps {
-        conditionalSteps {
-            condition {
-                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
-            }
-            runner('Fail')
-            steps {
-                shell('''set +x
-                        |mkdir -p ${JENKINS_HOME}/tools
-                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
-                        |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
-                        |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
-                        |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
-                        |set -x'''.stripMargin())
-            }
-        }
         conditionalSteps {
             condition {
                 shell('test ! -f "${JENKINS_HOME}/tools/jq"')
@@ -92,7 +78,7 @@ echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > full_environment_name.txt
 
 # Create the stack
 environment_stack_name="${VPC_ID}-${FULL_ENVIRONMENT_NAME}"
-${JENKINS_HOME}/tools/.aws/bin/aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://aws/environment_template.json \
+aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://aws/environment_template.json \
 	--parameters \
     	ParameterKey=Namespace,ParameterValue=${NAMESPACE} \
         ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID} \
@@ -104,7 +90,7 @@ ${JENKINS_HOME}/tools/.aws/bin/aws cloudformation create-stack --stack-name ${en
 SLEEP_TIME=60
 COUNT=0
 TIME_SPENT=0
-while ${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --stack-name ${environment_stack_name} | grep -q "CREATE_IN_PROGRESS" > /dev/null
+while aws cloudformation describe-stacks --stack-name ${environment_stack_name} | grep -q "CREATE_IN_PROGRESS" > /dev/null
 do
 	TIME_SPENT=$(($COUNT * $SLEEP_TIME))
     echo "Attempt ${COUNT} : Stack creation in progress (Time spent : ${TIME_SPENT} seconds)"
@@ -114,7 +100,7 @@ done
 
 # Check that the stack created
 TIME_SPENT=$(($COUNT * $SLEEP_TIME))
-if $(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --stack-name ${environment_stack_name} | grep -q "CREATE_COMPLETE")
+if $(aws cloudformation describe-stacks --stack-name ${environment_stack_name} | grep -q "CREATE_COMPLETE")
 then
 	echo "Stack has been created in approximately ${TIME_SPENT} seconds."
 else
@@ -123,7 +109,7 @@ else
 fi
 
 # Retrieve details required for Nginx config
-aws_response=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --stack-name ${environment_stack_name})
+aws_response=$(aws cloudformation describe-stacks --stack-name ${environment_stack_name})
 node_names_list=(NodeAppCI NodeApp1 NodeApp2)
 
 FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]' '[:lower:]')
@@ -149,7 +135,8 @@ for node_name in ${node_names_list[@]}; do
     sed -i "s/###TOKEN_NODEAPP_${SITE_NAME}_PORT###/80/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
 
   	# Upload new config on ADOP-NGINX server
-  	scp -o StrictHostKeyChecking=no ${nginx_main_env_conf} ${nginx_public_env_conf} ec2-user@nginx.service.adop.consul:~
+  	docker cp ${nginx_main_env_conf} proxy:${nginx_main_env_conf}
+  	docker cp ${nginx_public_env_conf} proxy:${nginx_public_env_conf}
   fi
 
   FULL_SITE_NAME="${FULL_ENVIRONMENT_NAME_LOWERCASE}-${SITE_NAME}"
@@ -162,12 +149,12 @@ for node_name in ${node_names_list[@]}; do
   sed -i "s/${TOKEN_PORT}/80/g" ${nginx_sites_enabled_file}
 
   # Upload new config on ADOP-NGINX server
-  scp -o StrictHostKeyChecking=no ${nginx_sites_enabled_file} ec2-user@nginx.service.adop.consul:${nginx_sites_enabled_file}
+  docker cp ${nginx_sites_enabled_file} proxy:${nginx_sites_enabled_file}
 done
 
 # Copy config files to NGINX configuration folder and reload ADOP-NGINX
 environment_configs_mask="${FULL_ENVIRONMENT_NAME_LOWERCASE}*"
-ssh -o StrictHostKeyChecking=no -t -t -y ec2-user@nginx.service.adop.consul "sudo mv ${environment_configs_mask} /data/nginx/configuration/sites-enabled/; sudo docker exec ADOP-NGINX /usr/sbin/nginx -s reload;"
+docker exec proxy /usr/sbin/nginx -s reload
 ''')
         environmentVariables {
             propertiesFile('full_environment_name.txt')
@@ -215,7 +202,7 @@ destroyEnvironmentJob.with{
     steps {
         conditionalSteps {
             condition {
-                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
+                shell('test ! -f "aws"')
             }
             runner('Fail')
             steps {
@@ -247,13 +234,13 @@ done
 
 # Delete the stack
 environment_stack_name="${VPC_ID}-${FULL_ENVIRONMENT_NAME}"
-${JENKINS_HOME}/tools/.aws/bin/aws cloudformation delete-stack --stack-name ${environment_stack_name}
+aws cloudformation delete-stack --stack-name ${environment_stack_name}
 
 # Keep looping whilst the stack is being deleted
 SLEEP_TIME=60
 COUNT=0
 TIME_SPENT=0
-while ${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --stack-name ${environment_stack_name} | grep -q "DELETE_IN_PROGRESS" > /dev/null
+while aws cloudformation describe-stacks --stack-name ${environment_stack_name} | grep -q "DELETE_IN_PROGRESS" > /dev/null
 do
     TIME_SPENT=$(($COUNT * $SLEEP_TIME))
     echo "Attempt ${COUNT} : Stack deletion in progress (Time spent : ${TIME_SPENT} seconds)"
@@ -263,7 +250,7 @@ done
 
 # Check that the stack deleted
 TIME_SPENT=$(($COUNT * $SLEEP_TIME))
-if $(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --stack-name ${environment_stack_name})
+if $(aws cloudformation describe-stacks --stack-name ${environment_stack_name})
 then
     echo "ERROR : Stack deletion failed after ${TIME_SPENT} seconds. Please check the AWS console for more information."
     exit 1
