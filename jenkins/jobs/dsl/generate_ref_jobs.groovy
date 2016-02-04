@@ -208,7 +208,7 @@ deployToCIEnvJob.with {
     steps {
         shell('''set +x
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
-                |CI_HOST="${NAMESPACE}-NodeApp-CI.node.consul"
+                |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -262,7 +262,7 @@ functionalTestsJob.with {
     steps {
         shell('''set +x
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
-                |CI_HOST="${NAMESPACE}-NodeApp-CI.node.consul"
+                |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
