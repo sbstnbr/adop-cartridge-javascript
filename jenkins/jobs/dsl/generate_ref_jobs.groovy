@@ -188,10 +188,12 @@ deployToCIEnvJob.with {
         maskPasswords()
         sshAgent("adop-jenkins-master")
     }
-    copyArtifacts(projectFolderName + "/Build_App") {
-        includePatterns('docker-compose*.yml')
-        buildSelector {
-            buildNumber('${B}')
+    steps {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            includePatterns('docker-compose*.yml')
+            buildSelector {
+                buildNumber('${B}')
+            }
         }
     }
     steps {
