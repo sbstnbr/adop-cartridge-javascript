@@ -386,6 +386,10 @@ securityTestsJob.with{
 
 performanceTestsJob.with {
     description("Run technical tests fot nodejs reference app")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     wrappers {
         preBuildCleanup()
     }
@@ -431,6 +435,10 @@ performanceTestsJob.with {
 
 deployToProdNode1Job.with {
     description("Deploy nodejs reference app to Node A")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -463,6 +471,10 @@ deployToProdNode1Job.with {
         downstreamParameterized {
             trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
                 condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
             }
         }
 
@@ -471,6 +483,10 @@ deployToProdNode1Job.with {
 
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
+    parameters {
+        predefinedProp("B", '${BUILD_NUMBER}')
+        predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
