@@ -4,7 +4,7 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-reference-application.git";
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/hackathon-iris-aowp-ref-app.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
@@ -13,10 +13,12 @@ def codeAnalysisJob = freeStyleJob(projectFolderName + "/Code_Analysis")
 def deployToCIEnvJob = freeStyleJob(projectFolderName + "/Deploy_To_CI_ENV")
 def deployToProdNode1Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_1")
 def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_2")
-def functionalTestsJob = freeStyleJob(projectFolderName + "/Functional_Tests")
+def gruntFunctionalTestsJob = freeStyleJob(projectFolderName + "/Grunt_Functional_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
-def imageCompareJob = freeStyleJob(projectFolderName + "/Image_compare")
+def functionalTestsJob = freeStyleJob(projectFolderName + "/Functional_Tests")
+def imageCompareJob = freeStyleJob(projectFolderName + "/Image_Compare_Tests")
+def manualTestJob = freeStyleJob(projectFolderName + "/Manual_Tests")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -237,7 +239,7 @@ deployToCIEnvJob.with {
     }
 }
 
-functionalTestsJob.with {
+gruntFunctionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
     parameters{
         stringParam("B",'',"Parent build number")
@@ -275,17 +277,6 @@ functionalTestsJob.with {
                 |
                 |echo "Functional tests completed."
                 |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Security_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${B}')
-                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
-                }
-            }
-        }
     }
 }
 
@@ -561,6 +552,49 @@ deployToProdNode2Job.with {
     }
 }
 
+functionalTestsJob.with {
+    description("Functinal Test Job")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
+    scm {
+        git {
+            remote {
+                url(git@innersource.accenture.com:iris/iris-image-compare.git)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/develop")
+        }
+    }
+    wrappers {
+        preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
+    }
+    label("java8")
+    steps {
+        shell('''set +x
+                |mkdir -p ${WORKSPACE}/Images
+                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
+                |set -x'''.stripMargin())
+    }
+    publishers {
+        downstreamParameterized {
+            trigger(projectFolderName + "/Image_Compare_Tests") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
+            }
+        }
+
+    }
+}
+
 imageCompareJob.with {
     description("Image Compare Job")
     environmentVariables {
@@ -592,7 +626,7 @@ imageCompareJob.with {
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
+            trigger(projectFolderName + "/Manual_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
@@ -603,3 +637,48 @@ imageCompareJob.with {
 
     }
 }
+
+
+manualTestJob.with {
+    description("Manual Test Job")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
+    scm {
+        git {
+            remote {
+                url(git@innersource.accenture.com:iris/iris-image-compare.git)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/develop")
+        }
+    }
+    wrappers {
+        preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
+    }
+    label("java8")
+    steps {
+        shell('''set +x
+                |mkdir -p ${WORKSPACE}/Images
+                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
+                |set -x'''.stripMargin())
+    }
+    publishers {
+        downstreamParameterized {
+            trigger(projectFolderName + "/Security_Tests") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
+            }
+        }
+
+    }
+}
+
