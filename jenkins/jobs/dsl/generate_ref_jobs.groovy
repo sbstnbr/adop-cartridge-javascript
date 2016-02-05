@@ -49,7 +49,7 @@ buildAppJob.with {
                 url(nodeReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/develop")
+            branch("*/master")
         }
     }
     steps {
@@ -113,7 +113,7 @@ buildAppJob.with {
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
-                                pattern("develop")
+                                pattern("master")
                             }
                         }
                     }
