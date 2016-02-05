@@ -82,7 +82,7 @@ echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
 
 # Create the stack
 environment_stack_name="${VPC_ID}-${FULL_ENVIRONMENT_NAME}"
-#aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://environment/aws/environment_template.json 	--parameters     	ParameterKey=Namespace,ParameterValue=${NAMESPACE}    ParameterKey=JenkinsPubKey,ParameterValue="${JENKINS_SSH_RSA_PUB}"     ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID}         ParameterKey=KeyName,ParameterValue=${KEY_NAME}         ParameterKey=VPCId,ParameterValue=${VPC_ID}         ParameterKey=DefaultAppSGID,ParameterValue=${DEFAULT_APP_SECURITY_GROUP_ID}
+aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://environment/aws/environment_template.json 	--parameters     	ParameterKey=Namespace,ParameterValue=${NAMESPACE}    ParameterKey=JenkinsPubKey,ParameterValue="${JENKINS_SSH_RSA_PUB}"     ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID}         ParameterKey=KeyName,ParameterValue=${KEY_NAME}         ParameterKey=VPCId,ParameterValue=${VPC_ID}         ParameterKey=DefaultAppSGID,ParameterValue=${DEFAULT_APP_SECURITY_GROUP_ID}
 
 # Keep looping whilst the stack is being created
 SLEEP_TIME=60
@@ -227,9 +227,9 @@ echo "Unregistering consul"
 for node_name in ${node_names_list[@]}; do
     consul_instance_name=$(echo ${FULL_ENVIRONMENT_NAME}-${node_name} | tr '[:upper:]' '[:lower:]')
     echo "Removing container for ${consul_instance_name}"
-    ssh-keygen -R "${consul_instance_name}.node.consul"
-    id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
-    ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
+    ssh-keygen -R "${consul_instance_name}"
+    id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name} "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
+    ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name} "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
 done
 
 # Delete the stack
