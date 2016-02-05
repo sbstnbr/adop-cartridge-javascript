@@ -361,8 +361,7 @@ securityTestsJob.with{
                 |
                 |# Setting up variables for Maven
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:upper:]' );
-                |stacks=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[*]')
-                |environment_ip_ci=$( echo $stacks | ${JENKINS_HOME}/tools/jq -r '.[] | select(.Tags[]|.Value==$NAMESPACE) | .Outputs[] | select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
+                |environment_ip_ci=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[*]' | ${JENKINS_HOME}/tools/jq --arg namespace $NAMESPACE -r '.[] | select(.Tags[]|.Value==$namespace) | .Outputs[] | select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
                 |
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
                 |VAR_APPLICATION_URL=http://${environment_ip_ci}:80/$NAMESPACE-ci
@@ -370,12 +369,13 @@ securityTestsJob.with{
                 |VAR_ZAP_PORT="9090"
                 |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
                 |
+                |echo "APP_NAME=""${NAMESPACE}""-ci" >> app.properties
                 |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
                 |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
                 |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties
                 '''.stripMargin())
         environmentVariables {
-            propertiesFile('maven_variables.properties')
+            propertiesFile('maven_variables.properties,app.properties')
         }
         maven {
               goals("clean")
@@ -400,7 +400,7 @@ securityTestsJob.with{
     configure{myProject ->
         myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
-            reportDir("nodeapp-a/target/failsafe-reports")
+            reportDir('$APP_NAME/target/failsafe-reports')
             reportFiles("index.html")
             alwaysLinkToLastBuild("false")
             keepAll("false")
