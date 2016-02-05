@@ -102,7 +102,7 @@
                 },
                 "NetworkInterfaces": [
                     {
-                        "AssociatePublicIpAddress": "false",
+                        "AssociatePublicIpAddress": "true",
                         "DeleteOnTermination": "true",
                         "DeviceIndex": "0",
                         "GroupSet": [
@@ -196,7 +196,7 @@
                 },
                 "NetworkInterfaces": [
                     {
-                        "AssociatePublicIpAddress": "false",
+                        "AssociatePublicIpAddress": "true",
                         "DeleteOnTermination": "true",
                         "DeviceIndex": "0",
                         "GroupSet": [
@@ -290,7 +290,7 @@
                 },
                 "NetworkInterfaces": [
                     {
-                        "AssociatePublicIpAddress": "false",
+                        "AssociatePublicIpAddress": "true",
                         "DeleteOnTermination": "true",
                         "DeviceIndex": "0",
                         "GroupSet": [
