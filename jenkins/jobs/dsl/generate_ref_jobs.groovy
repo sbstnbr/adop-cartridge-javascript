@@ -308,6 +308,11 @@ securityTestsJob.with{
             usernamePassword("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "aws-environment-provisioning")
         }
     }
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
     steps {
         conditionalSteps{
             condition{
@@ -355,7 +360,7 @@ securityTestsJob.with{
                 |sleep 30s
                 |
                 |# Setting up variables for Maven
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' )
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:upper:]' )
                 |environment_ip=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`$NAMESPACE`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
                 |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
                 |
