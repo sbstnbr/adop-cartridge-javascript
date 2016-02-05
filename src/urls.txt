@@ -1,3 +1,3 @@
-ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git
+ssh://git@innersource.accenture.com:adop/hackathon-iris-aowp-ref-app.git
 ssh://git@uat.alm.accenture.com/ado7/environment_template.git
 ssh://git@uat.alm.accenture.com/ado7/aowp-performance-tests.git
