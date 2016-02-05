@@ -605,7 +605,7 @@ imageCompareJob.with {
     scm {
         git {
             remote {
-                url(git@innersource.accenture.com:iris/iris-image-compare.git)
+                url('git@innersource.accenture.com:iris/iris-image-compare.git')
                 credentials("adop-jenkins-master")
             }
             branch("*/develop")
@@ -649,7 +649,7 @@ manualTestJob.with {
     scm {
         git {
             remote {
-                url(git@innersource.accenture.com:iris/iris-image-compare.git)
+                url('git@innersource.accenture.com:iris/iris-image-compare.git')
                 credentials("adop-jenkins-master")
             }
             branch("*/develop")
