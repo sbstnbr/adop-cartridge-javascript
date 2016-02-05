@@ -9,7 +9,7 @@ def environmentTemplateGitUrl = "git@innersource.accenture.com:adop/cartridge-ir
 def environmentProvisioningPipelineView = buildPipelineView(projectFolderName + "/Environment_Provisioning")
 def createEnvironmentJob = freeStyleJob(projectFolderName + "/Create_Environment")
 def destroyEnvironmentJob = freeStyleJob(projectFolderName + "/Destroy_Environment")
-def createIrisFrontEndJob = freeStyleJob(projectFolderName + "/Create_Iris_Environment")
+def createIrisFrontEndJob = freeStyleJob(projectFolderName + "/Create_Iris_Frontend")
 
 // Pipeline
 environmentProvisioningPipelineView.with{
@@ -302,7 +302,8 @@ createIrisFrontEndJob.with{
   label("docker")
   steps {
     shell('''set +x
-            |docker-compose up -d 
+            |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')"
+            |docker-compose up -p ${SERVICE_NAME} -d 
             |echo "=.=.=.=.=.=.=.=.=.=.=.=."
             |echo "=.=.=.=.=.=.=.=.=.=.=.=."
             |echo "Environment URL (replace PUBLIC_IP with your public ip address where you access jenkins from) : http://iris_frontend.PUBLIC_IP.xip.io"
