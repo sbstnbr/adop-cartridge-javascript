@@ -303,7 +303,7 @@ createIrisFrontEndJob.with{
   steps {
     shell('''set +x
             |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')"
-            |docker-compose up -p ${SERVICE_NAME} -d 
+            |docker-compose up -p ${SERVICE_NAME} -d  --force-recreate
             |echo "=.=.=.=.=.=.=.=.=.=.=.=."
             |echo "=.=.=.=.=.=.=.=.=.=.=.=."
             |echo "Environment URL (replace PUBLIC_IP with your public ip address where you access jenkins from) : http://iris_frontend.PUBLIC_IP.xip.io"
