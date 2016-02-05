@@ -51,7 +51,7 @@
             "Description": "Key-pair name to use.",
             "Type": "AWS::EC2::KeyPair::KeyName"
         },
-        "JENKINS_SSH_RSA_PUB": {
+        "JenkinsPubKey": {
             "Description": "Jenkins Public Key",
             "Type": "String"
         },
@@ -156,7 +156,7 @@
                                 "chmod -R +x /usr/local/bin\n",
                                 "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose\n",
                                 "chmod +x /usr/local/bin/docker-compose\n",
-                                "echo ",{ "Ref": "JENKINS_SSH_RSA_PUB" },"  >> ~ec2-user/.ssh/authorized_keys\n",
+                                "echo ",{ "Ref": "JenkinsPubKey" },"  >> ~ec2-user/.ssh/authorized_keys\n",
                                 "docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com\n",
                                 "docker run -td --restart=always --privileged -e RSYSLOG_IP_PORT=logstash.service.adop.consul:514 -v /var/log:/var/log docker.accenture.com/dcsc/rsyslog:0.1.0\n",                                
                                 "docker pull node:4.2.6\n",
@@ -250,7 +250,7 @@
                                 "chmod -R +x /usr/local/bin\n",
                                 "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose\n",
                                 "chmod +x /usr/local/bin/docker-compose\n",
-				"echo ",{ "Ref": "JENKINS_SSH_RSA_PUB" },"  >> ~ec2-user/.ssh/authorized_keys\n",
+				"echo ",{ "Ref": "JenkinsPubKey" },"  >> ~ec2-user/.ssh/authorized_keys\n",
                                 "docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com\n",
                                 "docker run -td --restart=always --privileged -e RSYSLOG_IP_PORT=logstash.service.adop.consul:514 -v /var/log:/var/log docker.accenture.com/dcsc/rsyslog:0.1.0\n",
                                 "docker pull node:4.2.6\n",
@@ -344,7 +344,7 @@
                                 "chmod -R +x /usr/local/bin\n",
                                 "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose\n",
                                 "chmod +x /usr/local/bin/docker-compose\n",
-				"echo ",{ "Ref": "JENKINS_SSH_RSA_PUB" },"  >> ~ec2-user/.ssh/authorized_keys\n",
+				"echo ",{ "Ref": "JenkinsPubKey" },"  >> ~ec2-user/.ssh/authorized_keys\n",
                                 "docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com\n",
                                 "docker run -td --restart=always --privileged -e RSYSLOG_IP_PORT=logstash.service.adop.consul:514 -v /var/log:/var/log docker.accenture.com/dcsc/rsyslog:0.1.0\n",
                                 "docker pull node:4.2.6\n",
