@@ -59,7 +59,11 @@ createEnvironmentJob.with{
         }
     }
     steps {
-        shell('''#!/bin/bash -ex
+        shell('''#!/bin/bash -e
+
+set +x
+# Get the ssh key for jenkins master
+JENKINS_SSH_RSA_PUB=$(docker exec jenkins cat ${JENKINS_HOME}/.ssh/id_rsa.pub)
 
 #HACK NOT ENTIRELY HAPPY ABOUT THIS BEING HARDCODED
 #TODO: FIX THIS
@@ -71,20 +75,14 @@ TOKEN_IP="###TOKEN_IP###"
 TOKEN_PORT="###TOKEN_PORT###"
 
 # Variables
-NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
+NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" )
 FULL_ENVIRONMENT_NAME="${NAMESPACE}"
 
-echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > full_environment_name.txt
+echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
 
 # Create the stack
 environment_stack_name="${VPC_ID}-${FULL_ENVIRONMENT_NAME}"
-aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://aws/environment_template.json \
-	--parameters \
-    	ParameterKey=Namespace,ParameterValue=${NAMESPACE} \
-        ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID} \
-        ParameterKey=KeyName,ParameterValue=${KEY_NAME} \
-        ParameterKey=VPCId,ParameterValue=${VPC_ID} \
-        ParameterKey=DefaultAppSGID,ParameterValue=${DEFAULT_APP_SECURITY_GROUP_ID}
+#aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://environment/aws/environment_template.json 	--parameters     	ParameterKey=Namespace,ParameterValue=${NAMESPACE}    ParameterKey=JenkinsPubKey,ParameterValue="${JENKINS_SSH_RSA_PUB}"     ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID}         ParameterKey=KeyName,ParameterValue=${KEY_NAME}         ParameterKey=VPCId,ParameterValue=${VPC_ID}         ParameterKey=DefaultAppSGID,ParameterValue=${DEFAULT_APP_SECURITY_GROUP_ID}
 
 # Keep looping whilst the stack is being created
 SLEEP_TIME=60
@@ -116,17 +114,17 @@ FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]'
 
 # Copy main NGINX config
 nginx_main_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}.conf"
-cp nginx/nodeapp.conf ${nginx_main_env_conf}
+cp environment/nginx/nodeapp.conf ${nginx_main_env_conf}
 
 # Copy public NGINX config
 nginx_public_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}-public.conf"
-cp nginx/nodeapp-public.conf ${nginx_public_env_conf}
+cp environment/nginx/nodeapp-public.conf ${nginx_public_env_conf}
 
 # Loop to handle all web sites configuration
 for node_name in ${node_names_list[@]}; do
   OUTPUT_PRIVATE_IP_KEY="${node_name}PrivateIp"
-  ENVIRONMENT_IP=$(echo "${aws_response}" | ${JENKINS_HOME}/tools/jq -r ".Stacks[0]|.Outputs[]|select(.OutputKey|contains(\\"${OUTPUT_PRIVATE_IP_KEY}\\"))|.OutputValue")
-
+  ENVIRONMENT_IP=$(echo "${aws_response}" | ${JENKINS_HOME}/tools/jq -r ".Stacks[0]|.Outputs[]|select(.OutputKey|contains(\"${OUTPUT_PRIVATE_IP_KEY}\"))|.OutputValue")
+  echo "${node_name}=${ENVIRONMENT_IP}" >> endpoints.txt
   SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
   if [ "${SITE_NAME}" != "CI" ]
   then
@@ -143,7 +141,7 @@ for node_name in ${node_names_list[@]}; do
 
   # Generate Nginx configuration, replace values on real site name, ip and port
   nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME_LOWERCASE}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
-  cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+  cp environment/nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
   sed -i "s/${TOKEN_NAMESPACE}/${FULL_SITE_NAME}/g" ${nginx_sites_enabled_file}
   sed -i "s/${TOKEN_IP}/${ENVIRONMENT_IP}/g" ${nginx_sites_enabled_file}
   sed -i "s/${TOKEN_PORT}/80/g" ${nginx_sites_enabled_file}
@@ -155,10 +153,12 @@ done
 # Copy config files to NGINX configuration folder and reload ADOP-NGINX
 environment_configs_mask="${FULL_ENVIRONMENT_NAME_LOWERCASE}*"
 docker exec proxy /usr/sbin/nginx -s reload
-''')
+
+set -x''')
         environmentVariables {
-            propertiesFile('full_environment_name.txt')
+            propertiesFile('endpoints.txt')
         }
+	systemGroovyCommand(readFileFromWorkspace('cartridge/jenkins/scripts/jenkins_credentials.groovy'))
     }
     scm {
         git {
