@@ -304,6 +304,9 @@ securityTestsJob.with{
     }
     wrappers {
         preBuildCleanup()
+        credentialsBinding {
+            usernamePassword("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "aws-environment-provisioning")
+        }
     }
     steps {
         conditionalSteps{
@@ -320,6 +323,10 @@ securityTestsJob.with{
                         |set -x
                         '''.stripMargin())
             }
+        }
+    }
+    steps{
+        conditionalSteps{
             condition{
                 shell('test ! -f "${JENKINS_HOME}/tools/jq"')
             }
@@ -348,10 +355,12 @@ securityTestsJob.with{
                 |sleep 30s
                 |
                 |# Setting up variables for Maven
-                |environment_ip=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`NodeJSEnvCartridge-Ref`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' )
+                |environment_ip=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`$NAMESPACE`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
                 |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
                 |
-                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodejsenvcartridge-ref-ci
+                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]')
+                |VAR_APPLICATION_URL=http://${environment_ip}:80/$NAMESPACE-ci
                 |VAR_ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`ADOP-CORE`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue')
                 |VAR_ZAP_PORT="9090"
                 |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
