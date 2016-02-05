@@ -232,14 +232,22 @@ destroyEnvironmentJob.with{
 
 node_names_list=(NodeAppCI NodeApp1 NodeApp2)
 
-# Unregister Consul
-echo "Unregistering consul"
+echo "Unregistering Consul"
 for node_name in ${node_names_list[@]}; do
     consul_instance_name=$(echo ${FULL_ENVIRONMENT_NAME}-${node_name} | tr '[:upper:]' '[:lower:]')
-    echo "Removing container for ${consul_instance_name}"
-    ssh-keygen -R "${consul_instance_name}.node.consul"
-    id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
-    ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
+    current_instance_ip=$(curl -s http://consul.service.adop.consul:8500/v1/catalog/node/${consul_instance_name} | cut -d":" -f4 | cut -d"," -f1 | tr -d '""' | tr -d '{}')
+    if [ "$current_instance_ip" == "null" ]; then
+        echo "Host for ${consul_instance_name} not found"
+    else
+        echo "Removing container for ${consul_instance_name}, IP ${current_instance_ip}"
+        ssh-keygen -R "${current_instance_ip}"
+        id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${current_instance_ip} "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
+        if [ "$id" ]; then
+            ssh -o StrictHostKeyChecking=no -t -t ec2-user@${current_instance_ip} "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
+        else
+            echo "Consul container not found"
+        fi
+    fi
 done
 
 # Delete the stack
