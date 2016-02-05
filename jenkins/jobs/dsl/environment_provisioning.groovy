@@ -158,7 +158,7 @@ set -x''')
         environmentVariables {
             propertiesFile('endpoints.txt')
         }
-	systemGroovyCommand(readFileFromWorkspace('cartridge/jenkins/scripts/jenkins_credentials.groovy'))
+	systemGroovyCommand(readFileFromWorkspace('cartridge/jenkins/scripts/jenkins_global_envs.groovy'))
     }
     scm {
         git {
