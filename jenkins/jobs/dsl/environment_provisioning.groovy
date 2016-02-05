@@ -75,7 +75,7 @@ TOKEN_IP="###TOKEN_IP###"
 TOKEN_PORT="###TOKEN_PORT###"
 
 # Variables
-NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" )
+NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
 FULL_ENVIRONMENT_NAME="${NAMESPACE}"
 
 echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
