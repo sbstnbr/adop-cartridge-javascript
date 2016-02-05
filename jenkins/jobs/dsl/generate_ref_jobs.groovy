@@ -16,6 +16,7 @@ def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Nod
 def functionalTestsJob = freeStyleJob(projectFolderName + "/Functional_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
+def imageCompareJob = freeStyleJob(projectFolderName + "/Image_compare")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -209,7 +210,7 @@ deployToCIEnvJob.with {
     steps {
         shell('''set +x
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
+                |CI_HOST=${NodeAppCI}
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -228,8 +229,8 @@ deployToCIEnvJob.with {
             trigger(projectFolderName + "/Functional_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                    predefinedProp("B", '${B}')
+                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
                 }
             }
         }
@@ -263,7 +264,7 @@ functionalTestsJob.with {
     steps {
         shell('''set +x
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |CI_HOST="${NAMESPACE}-NodeAppCI.node.consul"
+                |CI_HOST="${NodeAppCI}"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on CI host
@@ -280,8 +281,8 @@ functionalTestsJob.with {
             trigger(projectFolderName + "/Security_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                    predefinedProp("B", '${B}')
+                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
                 }
             }
         }
@@ -488,7 +489,7 @@ deployToProdNode1Job.with {
     steps {
         shell('''set +x
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |AOWP1_HOST="${NAMESPACE}-NodeApp1.node.consul"
+                |AOWP1_HOST="${NodeApp1}"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on AOWP1 host
@@ -544,7 +545,7 @@ deployToProdNode2Job.with {
     steps {
         shell('''set +x
                 |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |AOWP2_HOST="${NAMESPACE}-NodeApp2.node.consul"
+                |AOWP2_HOST="${NodeApp2}"
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |
                 |# Copy the docker-compose configuration file on AOWP2 host
@@ -557,5 +558,48 @@ deployToProdNode2Job.with {
                 |echo "http://${NAMESPACE}-2.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
+    }
+}
+
+imageCompareJob.with {
+    description("Image Compare Job")
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
+    scm {
+        git {
+            remote {
+                url(git@innersource.accenture.com:iris/iris-image-compare.git)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/develop")
+        }
+    }
+    wrappers {
+        preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
+    }
+    label("java8")
+    steps {
+        shell('''set +x
+                |mkdir -p ${WORKSPACE}/Images
+                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
+                |set -x'''.stripMargin())
+    }
+    publishers {
+        downstreamParameterized {
+            trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
+            }
+        }
+
     }
 }

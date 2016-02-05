@@ -3,12 +3,13 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def environmentTemplateGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template"
+def environmentTemplateGitUrl = "git@innersource.accenture.com:adop/cartridge-iris.git"
 
 // Jobs
 def environmentProvisioningPipelineView = buildPipelineView(projectFolderName + "/Environment_Provisioning")
 def createEnvironmentJob = freeStyleJob(projectFolderName + "/Create_Environment")
 def destroyEnvironmentJob = freeStyleJob(projectFolderName + "/Destroy_Environment")
+def createIrisFrontEndJob = freeStyleJob(projectFolderName + "/Create_Iris_Frontend")
 
 // Pipeline
 environmentProvisioningPipelineView.with{
@@ -59,7 +60,11 @@ createEnvironmentJob.with{
         }
     }
     steps {
-        shell('''#!/bin/bash -ex
+        shell('''#!/bin/bash -e
+
+set +x
+# Get the ssh key for jenkins master
+JENKINS_SSH_RSA_PUB=$(docker exec jenkins cat ${JENKINS_HOME}/.ssh/id_rsa.pub)
 
 #HACK NOT ENTIRELY HAPPY ABOUT THIS BEING HARDCODED
 #TODO: FIX THIS
@@ -74,17 +79,11 @@ TOKEN_PORT="###TOKEN_PORT###"
 NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
 FULL_ENVIRONMENT_NAME="${NAMESPACE}"
 
-echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > full_environment_name.txt
+echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
 
 # Create the stack
 environment_stack_name="${VPC_ID}-${FULL_ENVIRONMENT_NAME}"
-aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://aws/environment_template.json \
-	--parameters \
-    	ParameterKey=Namespace,ParameterValue=${NAMESPACE} \
-        ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID} \
-        ParameterKey=KeyName,ParameterValue=${KEY_NAME} \
-        ParameterKey=VPCId,ParameterValue=${VPC_ID} \
-        ParameterKey=DefaultAppSGID,ParameterValue=${DEFAULT_APP_SECURITY_GROUP_ID}
+aws cloudformation create-stack --stack-name ${environment_stack_name} --tags "Key=createdby,Value=ADOP-Jenkins,Key=createdfor,Value=${NAMESPACE}" --template-body file://environment/aws/environment_template.json 	--parameters     	ParameterKey=Namespace,ParameterValue=${NAMESPACE}    ParameterKey=JenkinsPubKey,ParameterValue="${JENKINS_SSH_RSA_PUB}"     ParameterKey=EnvironmentSubnet,ParameterValue=${SUBNET_ID}         ParameterKey=KeyName,ParameterValue=${KEY_NAME}         ParameterKey=VPCId,ParameterValue=${VPC_ID}         ParameterKey=DefaultAppSGID,ParameterValue=${DEFAULT_APP_SECURITY_GROUP_ID}
 
 # Keep looping whilst the stack is being created
 SLEEP_TIME=60
@@ -116,17 +115,17 @@ FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]'
 
 # Copy main NGINX config
 nginx_main_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}.conf"
-cp nginx/nodeapp.conf ${nginx_main_env_conf}
+cp environment/nginx/nodeapp.conf ${nginx_main_env_conf}
 
 # Copy public NGINX config
 nginx_public_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}-public.conf"
-cp nginx/nodeapp-public.conf ${nginx_public_env_conf}
+cp environment/nginx/nodeapp-public.conf ${nginx_public_env_conf}
 
 # Loop to handle all web sites configuration
 for node_name in ${node_names_list[@]}; do
   OUTPUT_PRIVATE_IP_KEY="${node_name}PrivateIp"
-  ENVIRONMENT_IP=$(echo "${aws_response}" | ${JENKINS_HOME}/tools/jq -r ".Stacks[0]|.Outputs[]|select(.OutputKey|contains(\\"${OUTPUT_PRIVATE_IP_KEY}\\"))|.OutputValue")
-
+  ENVIRONMENT_IP=$(echo "${aws_response}" | ${JENKINS_HOME}/tools/jq -r ".Stacks[0]|.Outputs[]|select(.OutputKey|contains(\"${OUTPUT_PRIVATE_IP_KEY}\"))|.OutputValue")
+  echo "${node_name}=${ENVIRONMENT_IP}" >> endpoints.txt
   SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
   if [ "${SITE_NAME}" != "CI" ]
   then
@@ -143,7 +142,7 @@ for node_name in ${node_names_list[@]}; do
 
   # Generate Nginx configuration, replace values on real site name, ip and port
   nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME_LOWERCASE}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
-  cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+  cp environment/nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
   sed -i "s/${TOKEN_NAMESPACE}/${FULL_SITE_NAME}/g" ${nginx_sites_enabled_file}
   sed -i "s/${TOKEN_IP}/${ENVIRONMENT_IP}/g" ${nginx_sites_enabled_file}
   sed -i "s/${TOKEN_PORT}/80/g" ${nginx_sites_enabled_file}
@@ -155,10 +154,12 @@ done
 # Copy config files to NGINX configuration folder and reload ADOP-NGINX
 environment_configs_mask="${FULL_ENVIRONMENT_NAME_LOWERCASE}*"
 docker exec proxy /usr/sbin/nginx -s reload
-''')
+
+set -x''')
         environmentVariables {
-            propertiesFile('full_environment_name.txt')
+            propertiesFile('endpoints.txt')
         }
+	systemGroovyCommand(readFileFromWorkspace('cartridge/jenkins/scripts/jenkins_global_envs.groovy'))
     }
     scm {
         git {
@@ -227,9 +228,9 @@ echo "Unregistering consul"
 for node_name in ${node_names_list[@]}; do
     consul_instance_name=$(echo ${FULL_ENVIRONMENT_NAME}-${node_name} | tr '[:upper:]' '[:lower:]')
     echo "Removing container for ${consul_instance_name}"
-    ssh-keygen -R "${consul_instance_name}.node.consul"
-    id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
-    ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name}.node.consul "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
+    ssh-keygen -R "${consul_instance_name}"
+    id=$(ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name} "docker ps --format \\"{{.ID}}: {{.Image}}\\" | grep 'progrium/consul' | cut -f1 -d\\":\\"")
+    ssh -o StrictHostKeyChecking=no -t -t ec2-user@${consul_instance_name} "docker exec -it ${id%?} bash -c \\"consul leave\\" && docker stop ${id%?}"
 done
 
 # Delete the stack
@@ -275,4 +276,39 @@ sudo rm /data/nginx/configuration/sites-enabled/${nginx_main_env_conf} \
 sudo docker exec ADOP-NGINX /usr/sbin/nginx -s reload;"
 ''')
     }
+}
+
+createIrisFrontEndJob.with{
+  description("This job builds Java Spring reference application")
+  wrappers {
+    preBuildCleanup()
+    injectPasswords()
+    maskPasswords()
+    sshAgent("adop-jenkins-master")
+  }
+  scm{
+    git{
+      remote{
+        url("git@innersource.accenture.com:iris/iris-front.git")
+        credentials("adop-jenkins-master")
+      }
+      branch("*/hackathon-iris")
+    }
+  }
+  environmentVariables {
+      env('WORKSPACE_NAME',workspaceFolderName)
+      env('PROJECT_NAME',projectFolderName)
+  }
+  label("docker")
+  steps {
+    shell('''set +x
+            |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')"
+            |docker-compose up -p ${SERVICE_NAME} -d  --force-recreate
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |echo "Environment URL (replace PUBLIC_IP with your public ip address where you access jenkins from) : http://iris_frontend.PUBLIC_IP.xip.io"
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |set -x'''.stripMargin())
+  }
 }
