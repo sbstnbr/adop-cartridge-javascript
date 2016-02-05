@@ -3,12 +3,13 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def environmentTemplateGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template"
+def environmentTemplateGitUrl = "git@innersource.accenture.com:adop/cartridge-iris.git"
 
 // Jobs
 def environmentProvisioningPipelineView = buildPipelineView(projectFolderName + "/Environment_Provisioning")
 def createEnvironmentJob = freeStyleJob(projectFolderName + "/Create_Environment")
 def destroyEnvironmentJob = freeStyleJob(projectFolderName + "/Destroy_Environment")
+def createIrisFrontEndJob = freeStyleJob(projectFolderName + "/Create_Iris_Environment")
 
 // Pipeline
 environmentProvisioningPipelineView.with{
@@ -275,4 +276,38 @@ sudo rm /data/nginx/configuration/sites-enabled/${nginx_main_env_conf} \
 sudo docker exec ADOP-NGINX /usr/sbin/nginx -s reload;"
 ''')
     }
+}
+
+createIrisFrontEndJob.with{
+  description("This job builds Java Spring reference application")
+  wrappers {
+    preBuildCleanup()
+    injectPasswords()
+    maskPasswords()
+    sshAgent("adop-jenkins-master")
+  }
+  scm{
+    git{
+      remote{
+        url("git@innersource.accenture.com:iris/iris-front.git")
+        credentials("adop-jenkins-master")
+      }
+      branch("*/hackathon-iris")
+    }
+  }
+  environmentVariables {
+      env('WORKSPACE_NAME',workspaceFolderName)
+      env('PROJECT_NAME',projectFolderName)
+  }
+  label("docker")
+  steps {
+    shell('''set +x
+            |docker-compose up -d 
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |echo "Environment URL (replace PUBLIC_IP with your public ip address where you access jenkins from) : http://iris_frontend.PUBLIC_IP.xip.io"
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+            |set -x'''.stripMargin())
+  }
 }
