@@ -379,7 +379,7 @@ securityTestsJob.with{
         myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
             reportDir('${WORKSPACE}')
-            reportFiles('test-"${BUILD_NUMBER}"-report.html')
+            reportFiles('test-${BUILD_NUMBER}-report.html')
             alwaysLinkToLastBuild("false")
             keepAll("false")
             allowMissing("false")
