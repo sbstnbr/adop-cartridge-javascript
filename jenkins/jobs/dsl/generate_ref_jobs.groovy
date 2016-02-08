@@ -343,7 +343,7 @@ securityTestsJob.with{
     steps{
         conditionalSteps{
             condition{
-                shell('"${JENKINS_HOME}"/tools/docker top $CONTAINER_NAME!="FATA[0000] Error response from daemon: no such id: "$CONTAINER_NAME')
+                shell('${JENKINS_HOME}/tools/docker top $CONTAINER_NAME!="FATA[0000] Error response from daemon: no such id: "$CONTAINER_NAME')
             }
             runner('Fail')
             steps{
@@ -370,9 +370,6 @@ securityTestsJob.with{
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |sleep 30s
-                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
-                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
                 '''.stripMargin())
     }
     publishers {
@@ -382,7 +379,7 @@ securityTestsJob.with{
         myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
             reportDir('${WORKSPACE}')
-            reportFiles("test-${BUILD_NUMBER}-report.html")
+            reportFiles('test-"${BUILD_NUMBER}"-report.html')
             alwaysLinkToLastBuild("false")
             keepAll("false")
             allowMissing("false")
