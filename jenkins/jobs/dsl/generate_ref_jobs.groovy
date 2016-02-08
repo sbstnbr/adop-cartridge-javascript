@@ -4,7 +4,7 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/hackathon-iris-aowp-ref-app.git";
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
@@ -53,29 +53,13 @@ buildAppJob.with {
         }
     }
     steps {
-        conditionalSteps {
-            condition {
-                shell('test ! -f "${JENKINS_HOME}/tools/docker"')
-            }
-            runner('Fail')
-            steps {
-                shell('''set +x
-                        |DOCKER_VERSION=1.7.1
-                        |mkdir -p ${JENKINS_HOME}/tools
-                        |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
-                        |chmod +x "${JENKINS_HOME}/tools/docker"
-                        |set -x'''.stripMargin())
-            }
-        }
-    }
-    steps {
         shell('''set +x
                 |
                 |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
-                |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
+                |docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker build -t docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER} .
+                |while ! docker build -t docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER} .
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker build failed even after ${COUNT}. Please investigate."
@@ -86,7 +70,7 @@ buildAppJob.with {
                 |done
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker push docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER}
+                |while ! docker push docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER}
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker push failed even after ${COUNT}. Please investigate."
@@ -681,4 +665,3 @@ manualTestJob.with {
 
     }
 }
-
