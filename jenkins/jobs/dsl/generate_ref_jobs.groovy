@@ -304,90 +304,48 @@ securityTestsJob.with{
     }
     wrappers {
         preBuildCleanup()
-        credentialsBinding {
-            usernamePassword("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "aws-environment-provisioning")
-        }
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
-    steps {
-        conditionalSteps{
-            condition{
-                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
-            }
-            runner("Fail")
-            steps{
-                shell('''set +x
-                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
-                        |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
-                        |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
-                        |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
-                        |set -x
-                        '''.stripMargin())
-            }
+    steps{
+        shell('''echo "Setting values for container, project and app names"
+                |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )
+                |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
+                |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
+                |
+                |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
+                |echo PROJECT_NAME_TO_LOWER=$PROJECT_NAME_TO_LOWER >> app.properties
+                |echo APP_NAME=$APP_NAME >> app.properties
+                '''.stripMargin())
+        environmentVariables {
+            propertiesFile('app.properties')
         }
     }
     steps{
         conditionalSteps{
             condition{
-                shell('test ! -f "${JENKINS_HOME}/tools/jq"')
+                shell('!"${JENKINS_HOME}"/tools/docker top $CONTAINER_NAME &> /dev/null')
             }
             runner('Fail')
             steps{
-                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
-                        |chmod +x "${JENKINS_HOME}/tools/jq"
+                shell('''${JENKINS_HOME}/tools/docker stop $CONTAINER_NAME
+                        |${JENKINS_HOME}/tools/docker rm $CONTAINER_NAME
                         '''.stripMargin())
             }
         }
         shell('''echo "Running automation tests"
                 |
-                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
-                |owasp_zap_container=owasp_zap_nodeapp-${ref}
-                |
-                |if [ "${JENKINS_HOME}"/tools/docker top "$owasp_zap_container" &> /dev/null ]
-                |then
-                |    ${JENKINS_HOME}/tools/docker stop $owasp_zap_container
-                |    ${JENKINS_HOME}/tools/docker rm $owasp_zap_container
-                |fi
-                |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
-                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
-                |
-                |echo "Running Selenium tests through maven."
+                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
                 |sleep 30s
-                |
-                |# Setting up variables for Maven
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:upper:]' );
-                |environment_ip_ci=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[*]' | ${JENKINS_HOME}/tools/jq --arg namespace $NAMESPACE -r '.[] | select(.Tags[]|.Value==$namespace) | .Outputs[] | select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
-                |
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
-                |VAR_APPLICATION_URL=http://${environment_ip_ci}:80/$NAMESPACE-ci
-                |VAR_ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`ADOP-CORE`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
-                |VAR_ZAP_PORT="9090"
-                |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
-                |
-                |echo "APP_NAME=""${NAMESPACE}""-ci" >> app.properties
-                |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
-                |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
-                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties
                 '''.stripMargin())
-        environmentVariables {
-            propertiesFile('maven_variables.properties,app.properties')
-        }
-        maven {
-              goals("clean")
-              goals('install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}')
-              mavenInstallation("ADOP Maven")
-        }
+
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
-                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
-                |owasp_zap_container=owasp_zap_nodeapp-${ref}
-                |
-                |${JENKINS_HOME}/tools/docker stop ${owasp_zap_container}
-                |${JENKINS_HOME}/tools/docker rm ${owasp_zap_container}
+                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
+                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
                 |
                 |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
