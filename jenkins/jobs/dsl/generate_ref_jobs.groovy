@@ -328,7 +328,7 @@ securityTestsJob.with{
     }
     steps{
         shell('''echo "Setting values for container, project and app names"
-                |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )
+                |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )${BUILD_NUMBER}
                 |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
                 |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
                 |
