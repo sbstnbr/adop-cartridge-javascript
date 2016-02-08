@@ -310,6 +310,22 @@ securityTestsJob.with{
         env('PROJECT_NAME', projectFolderName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    steps {
+        conditionalSteps {
+            condition {
+                shell('test ! -f "${JENKINS_HOME}/tools/docker"')
+            }
+            runner('Fail')
+            steps {
+                shell('''set +x
+                        |DOCKER_VERSION=1.7.1
+                        |mkdir -p ${JENKINS_HOME}/tools
+                        |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
+                        |chmod +x "${JENKINS_HOME}/tools/docker"
+                        |set -x'''.stripMargin())
+            }
+        }
+    }
     steps{
         shell('''echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )
