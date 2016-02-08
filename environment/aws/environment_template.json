@@ -1,0 +1,410 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "NodeJS environment for AOWP",
+    "Mappings": {
+        "RegionMap": {
+            "eu-west-1": {
+                "AMI": "ami-9d24fcee",
+                "CORES3BUCKET": "https://s3-eu-west-1.amazonaws.com/adop-core"
+            }
+        }
+    },
+    "Outputs": {
+        "NodeAppCIPrivateIp": {
+            "Description": "NodeApp CI Private IP",
+            "Value": {
+                "Fn::GetAtt": [
+                    "NodeAppEc2InstanceCI",
+                    "PrivateIp"
+                ]
+            }
+        },
+        "NodeApp1PrivateIp": {
+            "Description": "NodeApp1 Private IP",
+            "Value": {
+                "Fn::GetAtt": [
+                    "NodeAppEc2Instance",
+                    "PrivateIp"
+                ]
+            }
+        },
+        "NodeApp2PrivateIp": {
+            "Description": "NodeApp2 Private IP",
+            "Value": {
+                "Fn::GetAtt": [
+                    "NodeAppEc2InstanceTwo",
+                    "PrivateIp"
+                ]
+            }
+        }
+    },
+    "Parameters": {
+        "Namespace": {
+            "Description": "The namespace to put the environment in, e.g. <WORKSPACE>-<PROJECT>.",
+            "Type": "String"
+        },
+        "EnvironmentSubnet": {
+            "Description": "The ID of the subnet to create the environment in.",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "KeyName": {
+            "Description": "Key-pair name to use.",
+            "Type": "AWS::EC2::KeyPair::KeyName"
+        },
+        "JenkinsPubKey": {
+            "Description": "Jenkins Public Key",
+            "Type": "String"
+        },
+        "VPCId": {
+            "Description": "VPC ID where the environment will be created",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "NginxCIDR": {
+            "Default" : "10.0.1.0/24",
+            "Description": "The CIDR for Nginx to allow it to act as a reverse proxy for this environment.",
+            "Type": "String"
+        },
+        "ToolsCIDR": {
+            "Default" : "10.0.0.0/24",
+            "Description": "The CIDR for the Tools subnet to allow it to access the environment.",
+            "Type": "String"
+        },
+        "DefaultAppSGID": {
+            "Description": "ID for Default Application Securtiy Group of the Core",
+            "Type": "AWS::EC2::SecurityGroup::Id"
+        }
+    },
+    "Resources": {
+        "NodeAppEc2InstanceCI": {
+            "Properties": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": "true",
+                            "VolumeSize": 50,
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "InstanceType": "t2.medium",
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "NetworkInterfaces": [
+                    {
+                        "AssociatePublicIpAddress": "true",
+                        "DeleteOnTermination": "true",
+                        "DeviceIndex": "0",
+                        "GroupSet": [
+                            {
+                                "Ref": "DefaultAppSGID"
+                            },
+                            {
+                                "Ref": "NodeAppSecurityGroup"
+                            }
+                        ],
+                        "SubnetId": {
+                            "Ref": "EnvironmentSubnet"
+                        }
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": { "Fn::Join": [ "",[ { "Ref": "Namespace" },"-NodeApp-CI" ]] }
+                    },
+                    {
+                        "Key": "createdFor",
+                        "Value": { "Ref": "Namespace" }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "export IP=$(hostname --ip-address)\n",
+                                "NODE=",{ "Ref": "Namespace" },"-NodeAppCI\n",
+                                "docker run -d -e SERVICE_IGNORE=true -h $NODE --restart=always -p $IP:8301:8301/udp -p $IP:8301:8301/tcp -p $IP:8302:8302/udp -p $IP:8302:8302/tcp -p $IP:8400:8400 -p $IP:8500:8500/tcp -p $IP:8300:8300/tcp -p $IP:8300:8300/udp -p $IP:53:53/udp -p $IP:53:53/tcp progrium/consul -advertise $IP -dc ADOP -retry-join 10.0.1.5 -retry-interval 60s -recursor 8.8.8.8\n",
+                                "docker run -d -v /var/run/docker.sock:/tmp/docker.sock -h $(hostname) --restart=always gliderlabs/registrator consul://$IP:8500 ; docker run --net=host --privileged --rm cap10morgan/conntrack -F\n",
+                                "curl ",
+                                {
+                                    "Fn::FindInMap": [
+                                        "RegionMap",
+                                        {
+                                            "Ref": "AWS::Region"
+                                        },
+                                        "CORES3BUCKET"
+                                    ]
+                                },
+                                "/data/academy-key/academy_key.pub >> ~/.ssh/authorized_keys\n",
+                                "yum update -y docker\n",
+                                "usermod -aG root ec2-user\n",
+                                "usermod -aG docker ec2-user\n",
+                                "wget https://s3-eu-west-1.amazonaws.com/adop-config/data-deployment/bin/jq-1.4 -O /usr/local/bin/jq\n",
+                                "chmod -R +x /usr/local/bin\n",
+                                "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose\n",
+                                "chmod +x /usr/local/bin/docker-compose\n",
+                                "echo ",{ "Ref": "JenkinsPubKey" },"  >> ~ec2-user/.ssh/authorized_keys\n",
+                                "docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com\n",
+                                "docker run -td --restart=always --privileged -e RSYSLOG_IP_PORT=logstash.service.adop.consul:514 -v /var/log:/var/log docker.accenture.com/dcsc/rsyslog:0.1.0\n",                                
+                                "docker pull node:4.2.6\n",
+                                "docker pull docker.accenture.com/aowp/nodejs-a_owp:27\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            },
+            "Type": "AWS::EC2::Instance"
+        },
+        "NodeAppEc2Instance": {
+            "Properties": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": "true",
+                            "VolumeSize": 50,
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "InstanceType": "t2.medium",
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "NetworkInterfaces": [
+                    {
+                        "AssociatePublicIpAddress": "true",
+                        "DeleteOnTermination": "true",
+                        "DeviceIndex": "0",
+                        "GroupSet": [
+                            {
+                                "Ref": "DefaultAppSGID"
+                            },
+                            {
+                                "Ref": "NodeAppSecurityGroup"
+                            }
+                        ],
+                        "SubnetId": {
+                            "Ref": "EnvironmentSubnet"
+                        }
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": { "Fn::Join": [ "",[ { "Ref": "Namespace" },"-NodeApp1" ]] }
+                    },
+                    {
+                        "Key": "createdFor",
+                        "Value": { "Ref": "Namespace" }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "export IP=$(hostname --ip-address)\n",
+                                "NODE=",{ "Ref": "Namespace" },"-NodeApp1\n",
+                                "docker run -d -e SERVICE_IGNORE=true -h $NODE --restart=always -p $IP:8301:8301/udp -p $IP:8301:8301/tcp -p $IP:8302:8302/udp -p $IP:8302:8302/tcp -p $IP:8400:8400 -p $IP:8500:8500/tcp -p $IP:8300:8300/tcp -p $IP:8300:8300/udp -p $IP:53:53/udp -p $IP:53:53/tcp progrium/consul -advertise $IP -dc ADOP -retry-join 10.0.1.5 -retry-interval 60s -recursor 8.8.8.8\n",
+                                "docker run -d -v /var/run/docker.sock:/tmp/docker.sock -h $(hostname) --restart=always gliderlabs/registrator consul://$IP:8500 ; docker run --net=host --privileged --rm cap10morgan/conntrack -F\n",
+                                "curl ",
+                                {
+                                    "Fn::FindInMap": [
+                                        "RegionMap",
+                                        {
+                                            "Ref": "AWS::Region"
+                                        },
+                                        "CORES3BUCKET"
+                                    ]
+                                },
+                                "/data/academy-key/academy_key.pub >> ~/.ssh/authorized_keys\n",
+                                "yum update -y docker\n",
+                                "usermod -aG root ec2-user\n",
+                                "usermod -aG docker ec2-user\n",
+                                "wget https://s3-eu-west-1.amazonaws.com/adop-config/data-deployment/bin/jq-1.4 -O /usr/local/bin/jq\n",
+                                "chmod -R +x /usr/local/bin\n",
+                                "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose\n",
+                                "chmod +x /usr/local/bin/docker-compose\n",
+				"echo ",{ "Ref": "JenkinsPubKey" },"  >> ~ec2-user/.ssh/authorized_keys\n",
+                                "docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com\n",
+                                "docker run -td --restart=always --privileged -e RSYSLOG_IP_PORT=logstash.service.adop.consul:514 -v /var/log:/var/log docker.accenture.com/dcsc/rsyslog:0.1.0\n",
+                                "docker pull node:4.2.6\n",
+                                "docker pull docker.accenture.com/aowp/nodejs-a_owp:27\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            },
+            "Type": "AWS::EC2::Instance"
+        },
+        "NodeAppEc2InstanceTwo": {
+            "Properties": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "DeleteOnTermination": "true",
+                            "VolumeSize": 50,
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "InstanceType": "t2.medium",
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "NetworkInterfaces": [
+                    {
+                        "AssociatePublicIpAddress": "true",
+                        "DeleteOnTermination": "true",
+                        "DeviceIndex": "0",
+                        "GroupSet": [
+                            {
+                                "Ref": "DefaultAppSGID"
+                            },
+                            {
+                                "Ref": "NodeAppSecurityGroup"
+                            }
+                        ],
+                        "SubnetId": {
+                            "Ref": "EnvironmentSubnet"
+                        }
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": { "Fn::Join": [ "",[ { "Ref": "Namespace" },"-NodeApp2" ]] }
+                    },
+                    {
+                        "Key": "createdFor",
+                        "Value": { "Ref": "Namespace" }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "export IP=$(hostname --ip-address)\n",
+                                "NODE=",{ "Ref": "Namespace" },"-NodeApp2\n",
+                                "docker run -d -e SERVICE_IGNORE=true -h $NODE --restart=always -p $IP:8301:8301/udp -p $IP:8301:8301/tcp -p $IP:8302:8302/udp -p $IP:8302:8302/tcp -p $IP:8400:8400 -p $IP:8500:8500/tcp -p $IP:8300:8300/tcp -p $IP:8300:8300/udp -p $IP:53:53/udp -p $IP:53:53/tcp progrium/consul -advertise $IP -dc ADOP -retry-join 10.0.1.5 -retry-interval 60s -recursor 8.8.8.8\n",
+                                "docker run -d -v /var/run/docker.sock:/tmp/docker.sock -h $(hostname) --restart=always gliderlabs/registrator consul://$IP:8500 ; docker run --net=host --privileged --rm cap10morgan/conntrack -F\n",
+                                "curl ",
+                                {
+                                    "Fn::FindInMap": [
+                                        "RegionMap",
+                                        {
+                                            "Ref": "AWS::Region"
+                                        },
+                                        "CORES3BUCKET"
+                                    ]
+                                },
+                                "/data/academy-key/academy_key.pub >> ~/.ssh/authorized_keys\n",
+                                "yum update -y docker\n",
+                                "usermod -aG root ec2-user\n",
+                                "usermod -aG docker ec2-user\n",
+                                "wget https://s3-eu-west-1.amazonaws.com/adop-config/data-deployment/bin/jq-1.4 -O /usr/local/bin/jq\n",
+                                "chmod -R +x /usr/local/bin\n",
+                                "curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose\n",
+                                "chmod +x /usr/local/bin/docker-compose\n",
+				"echo ",{ "Ref": "JenkinsPubKey" },"  >> ~ec2-user/.ssh/authorized_keys\n",
+                                "docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com\n",
+                                "docker run -td --restart=always --privileged -e RSYSLOG_IP_PORT=logstash.service.adop.consul:514 -v /var/log:/var/log docker.accenture.com/dcsc/rsyslog:0.1.0\n",
+                                "docker pull node:4.2.6\n",
+                                "docker pull docker.accenture.com/aowp/nodejs-a_owp:27\n",
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            },
+            "Type": "AWS::EC2::Instance"
+        },
+        "NodeAppSecurityGroup": {
+            "Properties": {
+                "GroupDescription": "Enabling access to all IPs and below listed ports",
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": {
+                            "Ref": "NginxCIDR"
+                        },
+                        "FromPort": "80",
+                        "IpProtocol": "tcp",
+                        "ToPort": "80"
+                    },
+                    {
+                        "CidrIp": {
+                            "Ref": "ToolsCIDR"
+                        },
+                        "FromPort": "80",
+                        "IpProtocol": "tcp",
+                        "ToPort": "80"
+                    },
+                    {
+                        "CidrIp": "10.0.10.0/24",
+                        "FromPort": "3306",
+                        "IpProtocol": "tcp",
+                        "ToPort": "3306"
+                    },
+                    {
+                        "CidrIp": {
+                            "Ref": "NginxCIDR"
+                        },
+                        "FromPort": "5984",
+                        "IpProtocol": "tcp",
+                        "ToPort": "5984"
+                    },
+                    {
+                        "CidrIp": {
+                            "Ref": "NginxCIDR"
+                        },
+                        "FromPort": "8081",
+                        "IpProtocol": "tcp",
+                        "ToPort": "8081"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "VPCId"
+                }
+            },
+            "Type": "AWS::EC2::SecurityGroup"
+        }
+    }
+}
