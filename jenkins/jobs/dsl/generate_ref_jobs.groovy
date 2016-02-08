@@ -343,7 +343,7 @@ securityTestsJob.with{
     steps{
         conditionalSteps{
             condition{
-                shell('!"${JENKINS_HOME}"/tools/docker top $CONTAINER_NAME &> /dev/null')
+                shell('"${JENKINS_HOME}"/tools/docker top $CONTAINER_NAME!="FATA[0000] Error response from daemon: no such id: "$CONTAINER_NAME')
             }
             runner('Fail')
             steps{
@@ -355,7 +355,9 @@ securityTestsJob.with{
         shell('''echo "Running automation tests"
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
-                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
+                |   /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
                 |sleep 30s
                 '''.stripMargin())
 
@@ -363,9 +365,14 @@ securityTestsJob.with{
                 |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
                 |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
                 |
-                |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
+                |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
+                |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
-                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .
+                |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
+                |sleep 30s
+                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
+                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
                 '''.stripMargin())
     }
     publishers {
@@ -374,8 +381,8 @@ securityTestsJob.with{
     configure{myProject ->
         myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
-            reportDir('$APP_NAME/target/failsafe-reports')
-            reportFiles("index.html")
+            reportDir('${WORKSPACE}')
+            reportFiles("test-${BUILD_NUMBER}-report.html")
             alwaysLinkToLastBuild("false")
             keepAll("false")
             allowMissing("false")
