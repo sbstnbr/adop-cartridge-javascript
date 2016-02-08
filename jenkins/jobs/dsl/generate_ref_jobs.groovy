@@ -16,9 +16,6 @@ def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Nod
 def gruntFunctionalTestsJob = freeStyleJob(projectFolderName + "/Grunt_Functional_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
-def functionalTestsJob = freeStyleJob(projectFolderName + "/Functional_Tests")
-def imageCompareJob = freeStyleJob(projectFolderName + "/Image_Compare_Tests")
-def manualTestJob = freeStyleJob(projectFolderName + "/Manual_Tests")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -212,7 +209,7 @@ deployToCIEnvJob.with {
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/Functional_Tests") {
+            trigger(projectFolderName + "/Grunt_Functional_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${B}')
@@ -261,6 +258,17 @@ gruntFunctionalTestsJob.with {
                 |
                 |echo "Functional tests completed."
                 |set -x'''.stripMargin())
+    }
+    publishers {
+        downstreamParameterized {
+            trigger(projectFolderName + "/Security_Tests") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${B}')
+                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
+                }
+            }
+        }
     }
 }
 
@@ -533,135 +541,5 @@ deployToProdNode2Job.with {
                 |echo "http://${NAMESPACE}-2.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
-    }
-}
-
-functionalTestsJob.with {
-    description("Functinal Test Job")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    scm {
-        git {
-            remote {
-                url('git@innersource.accenture.com:iris/iris-image-compare.git')
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    label("java8")
-    steps {
-        shell('''set +x
-                |mkdir -p ${WORKSPACE}/Images
-                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Image_Compare_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
-    }
-}
-
-imageCompareJob.with {
-    description("Image Compare Job")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    scm {
-        git {
-            remote {
-                url('git@innersource.accenture.com:iris/iris-image-compare.git')
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    label("java8")
-    steps {
-        shell('''set +x
-                |mkdir -p ${WORKSPACE}/Images
-                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Manual_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
-    }
-}
-
-
-manualTestJob.with {
-    description("Manual Test Job")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    scm {
-        git {
-            remote {
-                url('git@innersource.accenture.com:iris/iris-image-compare.git')
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    label("java8")
-    steps {
-        shell('''set +x
-                |mkdir -p ${WORKSPACE}/Images
-                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Security_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
     }
 }
