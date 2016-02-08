@@ -170,12 +170,14 @@ deployToCIEnvJob.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -192,18 +194,23 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |CI_HOST=${NodeAppCI}
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')_${ENVIRONMENT_NAME}"
                 |
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |
+                |#NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
+                |#CI_HOST=${NodeAppCI}
+                |#project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |# Copy the docker-compose configuration file on CI host
-                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${CI_HOST}:~/docker-compose.yml
-                |
+                |#scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${CI_HOST}:~/docker-compose.yml
                 |# Run docker-compose.test.yml on CI host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |
-                |echo "Deploy to CI environment completed"
-                |echo "http://${NAMESPACE}-ci.${STACK_IP}.xip.io"
+                |#ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
+                |#echo "Deploy to CI environment completed"
+                |#echo "http://${NAMESPACE}-ci.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
     }
