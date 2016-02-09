@@ -446,6 +446,10 @@ performanceTestsJob.with {
         downstreamParameterized {
             trigger(projectFolderName + "/Deploy_To_Prod_Node_1") {
                 condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
             }
         }
     }
