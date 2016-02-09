@@ -6,6 +6,7 @@ def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
+def zapProxyTestGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/zap-proxy-test.git"
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -296,14 +297,17 @@ securityTestsJob.with{
     scm {
         git {
             remote {
-                url(nodeReferenceAppGitUrl)
+                url(zapProxyTestGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/develop")
+            branch("*/master")
         }
     }
     wrappers {
         preBuildCleanup()
+        credentialsBinding {
+            usernamePassword("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "aws-environment-provisioning")
+        }
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -326,15 +330,50 @@ securityTestsJob.with{
             }
         }
     }
+    steps {
+        conditionalSteps{
+            condition{
+                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
+            }
+            runner("Fail")
+            steps{
+                shell('''set +x
+                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
+                        |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
+                        |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
+                        |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
+                        |set -x
+                        '''.stripMargin())
+            }
+        }
+    }
+    steps{
+        conditionalSteps{
+            condition{
+                shell('test ! -f "${JENKINS_HOME}/tools/jq"')
+            }
+            runner('Fail')
+            steps{
+                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
+                        |chmod +x "${JENKINS_HOME}/tools/jq"
+                        '''.stripMargin())
+            }
+        }
+    }
     steps{
         shell('''echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )${BUILD_NUMBER}
                 |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
                 |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
+                |APP_URL=http://${APP_NAME}.${STACK_IP}.xip.io
+                |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
+                |   ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
                 |
                 |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
                 |echo PROJECT_NAME_TO_LOWER=$PROJECT_NAME_TO_LOWER >> app.properties
                 |echo APP_NAME=$APP_NAME >> app.properties
+                |echo APP_URL=$APP_URL >> app.properties
+                |echo ZAP_IP=$ZAP_IP >> app.properties
                 '''.stripMargin())
         environmentVariables {
             propertiesFile('app.properties')
@@ -343,7 +382,7 @@ securityTestsJob.with{
     steps{
         conditionalSteps{
             condition{
-                shell('${JENKINS_HOME}/tools/docker top $CONTAINER_NAME!="FATA[0000] Error response from daemon: no such id: "$CONTAINER_NAME')
+                shell('${JENKINS_HOME}/tools/docker top $CONTAINER_NAME &> /dev/null')
             }
             runner('Fail')
             steps{
@@ -358,9 +397,23 @@ securityTestsJob.with{
                 |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |   /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |
+                |echo "Running Selenium tests through maven."
                 |sleep 30s
+                |
+                |# Setting up variables for Maven
+                |ZAP_PORT="9090"
+                |ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${CONTAINER_NAME} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
+                |echo "ZAP_PORT=${ZAP_PORT}" >> app.properties
                 '''.stripMargin())
-
+        environmentVariables {
+            propertiesFile('app.properties')
+        }
+        maven {
+              goals("clean")
+              goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
+              mavenInstallation("ADOP Maven")
+        }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
                 |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
                 |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
@@ -370,6 +423,7 @@ securityTestsJob.with{
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
+                |${JENKINS_HOME}/tools/docker rm --force $(docker ps --all -q -f exited=0)
                 '''.stripMargin())
     }
     publishers {
