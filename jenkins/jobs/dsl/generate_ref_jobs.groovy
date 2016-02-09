@@ -497,18 +497,6 @@ deployToProdNode1Job.with {
                 |
                 |set -x'''.stripMargin())
     }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
-    }
 }
 
 deployToProdNode2Job.with {
