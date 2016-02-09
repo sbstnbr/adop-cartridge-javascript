@@ -367,7 +367,7 @@ securityTestsJob.with{
                 |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
                 |APP_URL=http://${APP_NAME}.${STACK_IP}.xip.io
                 |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
-                |   ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
+                |   ${JENKINS_HOME}/tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
                 |
                 |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
                 |echo PROJECT_NAME_TO_LOWER=$PROJECT_NAME_TO_LOWER >> app.properties
@@ -380,17 +380,6 @@ securityTestsJob.with{
         }
     }
     steps{
-        conditionalSteps{
-            condition{
-                shell('${JENKINS_HOME}/tools/docker top $CONTAINER_NAME &> /dev/null')
-            }
-            runner('Fail')
-            steps{
-                shell('''${JENKINS_HOME}/tools/docker stop $CONTAINER_NAME
-                        |${JENKINS_HOME}/tools/docker rm $CONTAINER_NAME
-                        '''.stripMargin())
-            }
-        }
         shell('''echo "Running automation tests"
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
@@ -423,7 +412,8 @@ securityTestsJob.with{
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |${JENKINS_HOME}/tools/docker rm --force $(docker ps --all -q -f exited=0)
+                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
+                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
                 '''.stripMargin())
     }
     publishers {
