@@ -65,7 +65,7 @@ buildAppJob.with {
             |ret=$?
             |set -e
             |if [ ${ret} != 0 ]; then
-            | GIT_REPOSITORY = $(git ls-remote ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
+            | GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
             | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
             | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
             |else
