@@ -153,9 +153,9 @@ for node_name in ${node_names_list[@]}; do
 
     if [ "${SITE_NAME}" != "CI" ]
     then
-        full_node_name="${PROJECT_NAME_KEY}-prod${SITE_NAME}
+        full_node_name="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
     else
-        full_node_name="${PROJECT_NAME_KEY}-${SITE_NAME}
+        full_node_name="${PROJECT_NAME_KEY}-${SITE_NAME}"
     fi 
 
     echo "Deleting Nginx configuation and removing Docker container for ${node_name}"
