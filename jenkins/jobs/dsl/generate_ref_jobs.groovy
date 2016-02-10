@@ -20,11 +20,28 @@ def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
 
-generateNodeReferenceAppGitUrl.with{
+pipelineView.with {
+    title('ADOP Nodeapp Pipeline')
+    displayedBuilds(5)
+    selectedJob(projectFolderName + "/Build_App")
+    showPipelineParameters()
+    showPipelineDefinitionHeader()
+    refreshFrequency(5)
+}
+
+// Setup Load_Cartridge
+buildAppJob.with {
+    description("Build nodejs reference app")
     parameters{
         stringParam("GIT_REPOSITORY","nodeReferenceAppGitUrl","Repository name to build the project from.")
     }
-
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+    }
+    wrappers {
+        preBuildCleanup()
+    }
     steps {
         shell('''set +x
             |set +e
@@ -91,31 +108,11 @@ repo_url=${GIT_REPOSITORY}
 ''')
 
     }
-}
 
-pipelineView.with {
-    title('ADOP Nodeapp Pipeline')
-    displayedBuilds(5)
-    selectedJob(projectFolderName + "/Build_App")
-    showPipelineParameters()
-    showPipelineDefinitionHeader()
-    refreshFrequency(5)
-}
-
-// Setup Load_Cartridge
-buildAppJob.with {
-    description("Build nodejs reference app")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-    }
-    wrappers {
-        preBuildCleanup()
-    }
     scm {
         git {
             remote {
-                url(nodeReferenceAppGitUrl)
+                url(${repo_url})
                 credentials("adop-jenkins-master")
             }
             branch("*/develop")
