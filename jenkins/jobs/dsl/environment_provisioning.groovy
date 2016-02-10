@@ -68,7 +68,8 @@ for node_name in ${node_names_list[@]}; do
 
     if [ "${SITE_NAME}" != "CI" ]
     then
-        SERVICE_NAME="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
+        export SERVICE_NAME="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
+        export ENVIRONMENT_NAME="prod${SITE_NAME}"
         sed -i "s/${TOKEN_NAMESPACE}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/###TOKEN_NODEAPP_${SITE_NAME}_IP###/${SERVICE_NAME}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/###TOKEN_NODEAPP_${SITE_NAME}_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
@@ -77,11 +78,12 @@ for node_name in ${node_names_list[@]}; do
         docker cp ${nginx_main_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_main_env_conf}
         docker cp ${nginx_public_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_public_env_conf}
     else
-        SERVICE_NAME="${PROJECT_NAME_KEY}-${SITE_NAME}"
+        export SERVICE_NAME="${PROJECT_NAME_KEY}-${SITE_NAME}"
+        export ENVIRONMENT_NAME="${SITE_NAME}"
     fi
 
     # Run the docker container for the current node
-    environment_configs_mask="$PROJECT_NAME_KEY}*"
+    docker-compose -f environment/docker-compose.yml -p ${SERVICE_NAME} up -d
 
     # Genrate nginx configuration
     cp environment/nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
