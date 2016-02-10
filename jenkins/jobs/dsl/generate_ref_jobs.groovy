@@ -76,6 +76,7 @@ buildAppJob.with {
     steps {
         shell('''#!/bin/bash -ex
 #Clone source code
+GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
 git clone -b ${GIT_REPOSITORY_BRANCH} ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} .
 repo_namespace="${PROJECT_NAME}"
 permissions_repo="${repo_namespace}/permissions"
