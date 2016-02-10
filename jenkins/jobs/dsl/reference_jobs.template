@@ -4,6 +4,7 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
+def referenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME}"
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 def zapProxyTestGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/zap-proxy-test.git"
 
@@ -42,6 +43,15 @@ buildAppJob.with {
     wrappers {
         preBuildCleanup()
     }
+    scm{
+        git{
+            remote{
+                url(referenceAppGitUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/" + GIT_REPOSITORY_BRANCH)
+        }
+    }
     steps {
         conditionalSteps {
             condition {
@@ -57,59 +67,6 @@ buildAppJob.with {
                         |set -x'''.stripMargin())
             }
         }
-    }
-    steps {
-        shell('''#!/bin/bash -ex
-#Clone source code
-git clone ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME} .
-repo_namespace="${PROJECT_NAME}"
-permissions_repo="${repo_namespace}/permissions"
-
-# We trust everywhere
-echo -e "#!/bin/sh\nexec ssh -o StrictHostKeyChecking=no \"\\\$@\"\n" > ${WORKSPACE}/custom_ssh
-chmod +x ${WORKSPACE}/custom_ssh
-export GIT_SSH="${WORKSPACE}/custom_ssh"
-
-# Create repositories
-mkdir ${WORKSPACE}/tmp
-cd ${WORKSPACE}/tmp
-
-repo_url=${GIT_REPOSITORY_URL}
-    if [ ! -z "${repo_url}" ]; then
-        repo_name=$(echo "${repo_url}" | rev | cut -d'/' -f1 | rev | sed 's#.git$##g')
-        target_repo_name="${repo_namespace}/${repo_name}"
-        # Check if the repository already exists or not
-        repo_exists=0
-        list_of_repos=$(ssh -n -i "${JENKINS_HOME}/.ssh/id_rsa" -o StrictHostKeyChecking=no -p 29418 gerrit.service.adop.consul gerrit ls-projects --type code)
-
-        for repo in ${list_of_repos}
-        do
-            if [ ${repo} = ${target_repo_name} ]; then
-                echo "Found: ${repo}"
-                repo_exists=1
-                break
-            fi
-        done
-
-        # If not, create it
-        if [ ${repo_exists} -eq 0 ]; then
-            ssh -n -o StrictHostKeyChecking=no -i ${JENKINS_HOME}/.ssh/id_rsa -p 29418 gerrit.service.adop.consul gerrit create-project --parent "${permissions_repo}" "${target_repo_name}"
-        else
-            echo "Repository already exists, skipping create: ${target_repo_name}"
-        fi
-
-        # Populate repository
-        git clone ssh://jenkins@gerrit.service.adop.consul:29418/"${target_repo_name}"
-        cd "${repo_name}"
-        git remote add source "${repo_url}"
-        git fetch source
-        git push origin +refs/remotes/source/*:refs/heads/*
-        cd -
-    fi
-
-    cd ${WORKSPACE}
-    git checkout -b ${GIT_REPOSITORY_BRANCH}
-    ''')
     }
     steps {
         shell('''set +x

@@ -29,6 +29,14 @@ generateNodeReferenceAppJobs.with {
             |if [ ${ret} != 0 ]; then
             | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
             | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
+            | # Populate repository
+            |repo_name=$GIT_REPOSITORY
+            |target_repo_name="${repo_namespace}/${repo_name}"
+            |git clone ssh://jenkins@gerrit.service.adop.consul:29418/"${target_repo_name}"
+            |cd "${repo_name}"
+            |git remote add source "${GIT_REPOSITORY_URL}"
+            |git fetch source
+            |git push origin +refs/remotes/source/*:refs/heads/*
             |else
             | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
             |fi
