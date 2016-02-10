@@ -39,7 +39,6 @@ buildAppJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-        groovy("gitURL = ${GIT_REPOSITORY_URL}; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
     }
     wrappers {
         preBuildCleanup()
@@ -61,6 +60,7 @@ buildAppJob.with {
         }
     }
     steps {
+        groovy("gitURL = ${GIT_REPOSITORY_URL}; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
         shell('''set +x
             |set +e
             |#GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
@@ -75,6 +75,7 @@ buildAppJob.with {
             |fi'''.stripMargin())
     }
     steps {
+        groovy("gitURL = ${GIT_REPOSITORY_URL}; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
         shell('''#!/bin/bash -ex
 #Clone source code
 #GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
@@ -157,6 +158,7 @@ repo_url=${GIT_REPOSITORY_URL}
         systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
     }
     triggers {
+        groovy("gitURL = ${GIT_REPOSITORY_URL}; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
         gerrit {
             events {
                 refUpdated()
