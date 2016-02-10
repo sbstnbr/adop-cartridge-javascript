@@ -33,7 +33,6 @@ pipelineView.with {
 buildAppJob.with {
     description("Build nodejs reference app")
     parameters {
-        stringParam("GIT_REPOSITORY_NAME", "aowp-reference-application.git", "Git Repository NAME for gerrit trigger.")
         stringParam("GIT_REPOSITORY_URL", "ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git", "Git Repository URL to build the project from.")
         stringParam("GIT_REPOSITORY_BRANCH", "master", "Git Repository URL to build the project from.")
     }
@@ -165,11 +164,11 @@ repo_url=${GIT_REPOSITORY_URL}
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/${GIT_REPOSITORY_NAME}")
+                        pattern(projectFolderName + "/aowp-reference-application")
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
-                                pattern("${GIT_REPOSITORY_BRANCH}")
+                                pattern("develop")
                             }
                         }
                     }
