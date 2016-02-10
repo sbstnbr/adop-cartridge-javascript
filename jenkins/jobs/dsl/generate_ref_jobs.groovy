@@ -103,6 +103,7 @@ repo_url=${GIT_REPOSITORY}
         git fetch source
         git push origin +refs/remotes/source/*:refs/heads/*
         cd -
+        EXPORT nodeReferenceAppGitUrl=${repo_url}
     fi
 
 ''')
@@ -112,7 +113,7 @@ repo_url=${GIT_REPOSITORY}
     scm {
         git {
             remote {
-                url(${repo_url})
+                url(nodeReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
             branch("*/develop")
