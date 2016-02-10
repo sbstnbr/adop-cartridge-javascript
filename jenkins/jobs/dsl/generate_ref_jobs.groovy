@@ -74,7 +74,8 @@ buildAppJob.with {
     }
     steps {
         shell('''#!/bin/bash -ex
-
+#Clone source code
+git clone ${GIT_REPOSITORY_URL} project
 repo_namespace="${PROJECT_NAME}"
 permissions_repo="${repo_namespace}/permissions"
 
@@ -87,7 +88,7 @@ export GIT_SSH="${WORKSPACE}/custom_ssh"
 mkdir ${WORKSPACE}/tmp
 cd ${WORKSPACE}/tmp
 
-while read repo_url; do
+repo_url=${GIT_REPOSITORY_URL}
     if [ ! -z "${repo_url}" ]; then
         repo_name=$(echo "${repo_url}" | rev | cut -d'/' -f1 | rev | sed 's#.git$##g')
         target_repo_name="${repo_namespace}/${repo_name}"
@@ -118,8 +119,7 @@ while read repo_url; do
         git fetch source
         git push origin +refs/remotes/source/*:refs/heads/*
         cd -
-    fi
-    done < ${CARTRIDGE_CLONE_URL}''')
+    fi''')
     }
     steps {
         shell('''set +x
