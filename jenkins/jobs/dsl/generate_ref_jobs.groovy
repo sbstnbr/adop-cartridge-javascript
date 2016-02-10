@@ -39,6 +39,7 @@ buildAppJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        groovy("gitURL = ${GIT_REPOSITORY_URL}; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
     }
     wrappers {
         preBuildCleanup()
@@ -62,7 +63,7 @@ buildAppJob.with {
     steps {
         shell('''set +x
             |set +e
-            |GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
+            |#GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
             |git ls-remote ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} 2> /dev/null
             |ret=$?
             |set -e
@@ -76,7 +77,7 @@ buildAppJob.with {
     steps {
         shell('''#!/bin/bash -ex
 #Clone source code
-GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
+#GIT_REPOSITORY=$(git ls-remote --get-url ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
 git clone -b ${GIT_REPOSITORY_BRANCH} ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} .
 repo_namespace="${PROJECT_NAME}"
 permissions_repo="${repo_namespace}/permissions"
@@ -164,11 +165,11 @@ repo_url=${GIT_REPOSITORY_URL}
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/aowp-reference-application")
+                        pattern(projectFolderName + "/"+ ${GIT_REPOSITORY} +"")
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
-                                pattern("develop")
+                                pattern(${GIT_REPOSITORY_BRANCH})
                             }
                         }
                     }
