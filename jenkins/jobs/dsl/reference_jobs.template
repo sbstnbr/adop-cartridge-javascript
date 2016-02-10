@@ -33,6 +33,7 @@ pipelineView.with {
 buildAppJob.with {
     description("Build nodejs reference app")
     environmentVariables {
+        propertiesFile('env.properties')
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         groovy("gitURL = \"ssh://jenkins@gerrit.service.adop.consul:29418/AOWP/aowp-performance-tests.git\"; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
@@ -147,7 +148,7 @@ repo_url=${GIT_REPOSITORY_URL}
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/aowp-reference-application")
+                        pattern(projectFolderName + "/" + "${GIT_REPOSITORY}")
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")

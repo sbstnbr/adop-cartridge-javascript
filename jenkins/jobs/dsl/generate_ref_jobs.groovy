@@ -31,7 +31,17 @@ generateNodeReferenceAppJobs.with {
             | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
             |else
             | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
-            |fi'''.stripMargin())
+            |fi
+
+            echo "GIT_REPOSITORY_NAME=$GIT_REPOSITORY" > env.properties
+            echo "GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL" > env.properties
+            echo "GIT_REPOSITORY_BRANCH=$GIT_REPOSITORY_BRANCH" > env.properties
+
+
+            '''.stripMargin())
+        environmentVariables {
+            propertiesFile('env.properties')
+        }
         dsl {
             text(readFileFromWorkspace('cartridge/jenkins/jobs/dsl/reference_jobs.template'))
         }
