@@ -30,8 +30,6 @@ createEnvironmentJob.with{
     }
     steps {
         shell('''#!/bin/bash -e
-# Login to docker.accenture.com
-docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
 
 # Token constants
 TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
@@ -44,9 +42,7 @@ FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]'
 
 node_names_list=(NodeAppCI NodeApp1 NodeApp2)
 
-export CONTAINER_BUILD_NUMBER="27"
-
-echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
+"FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
 
 # Copy main NGINX config
 nginx_main_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}.conf"
@@ -63,8 +59,8 @@ for node_name in ${node_names_list[@]}; do
   full_site_name="${FULL_ENVIRONMENT_NAME_LOWERCASE}-${node_name_lowercase}"
   nginx_sites_enabled_file="${full_site_name}.conf"
 
-  export SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
-  export SERVICE_NAME="${FULL_ENVIRONMENT_NAME}-${node_name}"
+  SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
+  SERVICE_NAME="${FULL_ENVIRONMENT_NAME}-${node_name}"
     
   echo "${node_name}=${full_site_name}" >> endpoints.txt
     
@@ -81,7 +77,6 @@ for node_name in ${node_names_list[@]}; do
 
     # Run the docker container for the current node
     environment_configs_mask="${FULL_ENVIRONMENT_NAME_LOWERCASE}*"
-    docker-compose -p ${FULL_ENVIRONMENT_NAME} -f ./environment/docker/docker-compose.yml up -d
 
     # Genrate nginx configuration
     cp environment/nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
@@ -89,12 +84,11 @@ for node_name in ${node_names_list[@]}; do
     sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
 
-  # Copy the generated configuration file to nginx container
-  docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+    echo "Address for ${node_name}: http://${SERVICE_NAME}.<INSTANCE_IP>.xip.io/"
+    # Copy the generated configuration file to nginx container
+    docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
 done
 
-# Show the running containers for NodeJs
-docker ps | grep nodejs-a_owp
 # Reload Nginx configuration
 docker exec proxy /usr/sbin/nginx -s reload
 ''')
@@ -153,9 +147,6 @@ for node_name in ${node_names_list[@]}; do
     nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME_LOWERCASE}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
     full_node_name="${FULL_ENVIRONMENT_NAME}-${node_name}"
     docker exec -i proxy rm /etc/nginx/sites-enabled/${nginx_sites_enabled_file}
-    container_id=$(docker ps --format "{{.ID}}: {{.Names}}" | grep ${full_node_name} | cut -f1 -d":")
-    docker stop ${container_id%?}
-    docker rm -f ${container_id%?}
 done
 
 # Reload Nginx configuration
@@ -163,39 +154,4 @@ echo "Reloading Nginx configuration"
 docker exec proxy /usr/sbin/nginx -s reload
 ''')
     }
-}
-
-createIrisFrontEndJob.with{
-  description("This job builds Java Spring reference application")
-  wrappers {
-    preBuildCleanup()
-    injectPasswords()
-    maskPasswords()
-    sshAgent("adop-jenkins-master")
-  }
-  scm{
-    git{
-      remote{
-        url("git@innersource.accenture.com:iris/iris-front.git")
-        credentials("adop-jenkins-master")
-      }
-      branch("*/hackathon-iris")
-    }
-  }
-  environmentVariables {
-      env('WORKSPACE_NAME',workspaceFolderName)
-      env('PROJECT_NAME',projectFolderName)
-  }
-  label("docker")
-  steps {
-    shell('''set +x
-            |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')"
-            |docker-compose up -p ${SERVICE_NAME} -d  --force-recreate
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |echo "Environment URL (replace PUBLIC_IP with your public ip address where you access jenkins from) : http://iris_frontend.PUBLIC_IP.xip.io"
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |set -x'''.stripMargin())
-  }
 }
