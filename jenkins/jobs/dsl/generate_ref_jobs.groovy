@@ -32,8 +32,6 @@ generateNodeReferenceAppJobs.with {
             | # Populate repository
             |repo_name=$GIT_REPOSITORY
             |target_repo_name="${repo_namespace}/${repo_name}"
-            |git clone ssh://jenkins@gerrit.service.adop.consul:29418/"${target_repo_name}"
-            |cd "${repo_name}"
             |git remote add source "${GIT_REPOSITORY_URL}"
             |git fetch source
             |git push origin +refs/remotes/source/*:refs/heads/*
