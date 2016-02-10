@@ -161,7 +161,6 @@ for node_name in ${node_names_list[@]}; do
     echo "Deleting Nginx configuation and removing Docker container for ${node_name}"
     nginx_sites_enabled_file="${PROJECT_NAME_KEY}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
     docker exec -i proxy rm /etc/nginx/sites-enabled/${nginx_sites_enabled_file}
-    full_node_name="${PROJECT_NAME_KEY}-${SITE_NAME}"
     container_id=$(docker ps --format "{{.ID}}: {{.Names}}" | grep ${full_node_name} | cut -f1 -d":")
     docker stop ${container_id%?}
     docker rm -f ${container_id%?}
