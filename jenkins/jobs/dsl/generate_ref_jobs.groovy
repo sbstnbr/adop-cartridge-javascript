@@ -4,7 +4,7 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-//def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
+def nodeReferenceAppGitUrl = [];
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
