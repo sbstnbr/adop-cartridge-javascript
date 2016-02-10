@@ -36,7 +36,7 @@ buildAppJob.with {
         propertiesFile('env.properties')
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-        groovy("gitURL=GIT_REPOSITORY_URL; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
+        groovy("gitURL=$GIT_REPOSITORY_URL; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
     }
     wrappers {
         preBuildCleanup()
