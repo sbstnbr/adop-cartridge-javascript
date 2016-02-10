@@ -119,10 +119,6 @@ docker exec proxy /usr/sbin/nginx -s reload
     }
     publishers {
         buildPipelineTrigger("${PROJECT_NAME}/Destroy_Environment") {
-            parameters {
-                currentBuild()
-                predefinedProp("FULL_ENVIRONMENT_NAME", '$FULL_ENVIRONMENT_NAME')
-            }
         }
     }
 }
@@ -154,9 +150,22 @@ docker exec -i proxy rm /etc/nginx/sites-enabled/${nginx_main_env_conf}
 docker exec -i proxy rm /etc/nginx/sites-enabled/${nginx_public_env_conf}
 
 for node_name in ${node_names_list[@]}; do
+    SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
+
+    if [ "${SITE_NAME}" != "CI" ]
+    then
+        full_node_name="${PROJECT_NAME_KEY}-prod${SITE_NAME}
+    else
+        full_node_name="${PROJECT_NAME_KEY}-${SITE_NAME}
+    fi 
+
     echo "Deleting Nginx configuation and removing Docker container for ${node_name}"
     nginx_sites_enabled_file="${PROJECT_NAME_KEY}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
     docker exec -i proxy rm /etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+    full_node_name="${PROJECT_NAME_KEY}-${SITE_NAME}
+    container_id=$(docker ps --format "{{.ID}}: {{.Names}}" | grep ${full_node_name} | cut -f1 -d":")
+    docker stop ${container_id%?}
+    docker rm -f ${container_id%?}
 done
 
 # Reload Nginx configuration
