@@ -36,7 +36,6 @@ buildAppJob.with {
         propertiesFile('env.properties')
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-        groovy("gitURL = \"ssh://jenkins@gerrit.service.adop.consul:29418/AOWP/aowp-performance-tests.git\"; GIT_REPOSITORY = gitURL.split(\"/\")[4].split(\".git\")[0];")
     }
     wrappers {
         preBuildCleanup()
@@ -148,7 +147,7 @@ repo_url=${GIT_REPOSITORY_URL}
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/" + GIT_REPOSITORY)
+                        pattern(projectFolderName + "/" + GIT_REPOSITORY_NAME)
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
