@@ -173,7 +173,7 @@ codeAnalysisJob.with {
             trigger(projectFolderName + "/Deploy_To_CI_ENV") {
                 condition("UNSTABLE_OR_BETTER")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
                 }
             }
@@ -228,7 +228,7 @@ deployToCIEnvJob.with {
             trigger(projectFolderName + "/Functional_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
@@ -280,7 +280,7 @@ functionalTestsJob.with {
             trigger(projectFolderName + "/Security_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
@@ -434,7 +434,7 @@ securityTestsJob.with{
             trigger(projectFolderName + "/Performance_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
@@ -490,7 +490,7 @@ performanceTestsJob.with {
             trigger(projectFolderName + "/Deploy_To_Prod_Node_1") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
@@ -545,7 +545,7 @@ deployToProdNode1Job.with {
             trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
