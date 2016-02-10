@@ -57,14 +57,14 @@ cp environment/nginx/nodeapp-public.conf ${nginx_public_env_conf}
 
 # Loop trough the node list starting containers and generating nginx configuration
 for node_name in ${node_names_list[@]}; do
-  # Define all the variables
-  node_name_lowercase=$(echo ${node_name} | tr '[:upper:]' '[:lower:]')
-  full_site_name="${PROJECT_NAME_KEY}-${node_name_lowercase}"
-  nginx_sites_enabled_file="${full_site_name}.conf"
+    # Define all the variables
+    node_name_lowercase=$(echo ${node_name} | tr '[:upper:]' '[:lower:]')
+    full_site_name="${PROJECT_NAME_KEY}-${node_name_lowercase}"
+    nginx_sites_enabled_file="${full_site_name}.conf"
 
-  SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
+    SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
 
-  echo "${node_name}=${full_site_name}" >> endpoints.txt
+    echo "${node_name}=${full_site_name}" >> endpoints.txt
 
     if [ "${SITE_NAME}" != "CI" ]
     then
