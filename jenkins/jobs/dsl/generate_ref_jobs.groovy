@@ -53,7 +53,6 @@ buildAppJob.with {
     steps {
         shell('''set +x
                 |
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
                 |docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
@@ -196,7 +195,7 @@ deployToCIEnvJob.with {
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |docker-compose up -d --force-recreate
+                |docker-compose -f docker-compose.deploy.yml up --force-recreate
                 |
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
@@ -224,10 +223,13 @@ gruntFunctionalTestsJob.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     wrappers {
         preBuildCleanup()
@@ -245,15 +247,11 @@ gruntFunctionalTestsJob.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |CI_HOST="${NodeAppCI}"
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on CI host
-                |scp -o StrictHostKeyChecking=no docker-compose.test.yml ec2-user@${CI_HOST}:~/docker-compose.test.yml
+                |echo "Run functional tests on ${ENVIRONMENT_NAME} environment"
                 |
-                |# Run docker-compose.test.yml on CI host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose -f docker-compose.test.yml up --force-recreate"
+                |docker-compose -f docker-compose.test.yml up --force-recreate
                 |
                 |echo "Functional tests completed."
                 |set -x'''.stripMargin())
