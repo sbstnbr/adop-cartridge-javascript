@@ -147,7 +147,7 @@ repo_url=${GIT_REPOSITORY_URL}
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/Blah")
+                        pattern(projectFolderName + "/aowp-reference-application")
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
