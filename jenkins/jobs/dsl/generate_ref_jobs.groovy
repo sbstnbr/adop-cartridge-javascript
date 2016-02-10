@@ -4,7 +4,6 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = [];
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
@@ -108,16 +107,6 @@ repo_url=${GIT_REPOSITORY}
 
 ''')
 
-    }
-
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
     }
     steps {
         conditionalSteps {
