@@ -1,7 +1,7 @@
 // Folders
 def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
-def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
+def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-reference-application.git";
@@ -35,6 +35,7 @@ buildAppJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
     }
     label("docker")
     wrappers {
@@ -56,7 +57,7 @@ buildAppJob.with {
                 |docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
-                |while ! docker build -t docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER} .
+                |while ! docker build -t docker.accenture.com/aowp/${PROJECT_NAME_KEY}:${BUILD_NUMBER} .
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker build failed even after ${COUNT}. Please investigate."
@@ -67,7 +68,7 @@ buildAppJob.with {
                 |done
                 |
                 |COUNT=1
-                |while ! docker push docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER}
+                |while ! docker push docker.accenture.com/aowp/${PROJECT_NAME_KEY}:${BUILD_NUMBER}
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker push failed even after ${COUNT}. Please investigate."
@@ -77,9 +78,6 @@ buildAppJob.with {
                 |  COUNT=$((COUNT+1))
                 |done
                 '''.stripMargin())
-    }
-    steps {
-        systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
     }
     triggers {
         gerrit {
@@ -126,7 +124,7 @@ codeAnalysisJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-        env('SONAR_PROJECT_KEY', sonarProjectKey)
+        env('PROJECT_NAME_KEY', projectNameKey)
     }
     wrappers {
         preBuildCleanup()
@@ -140,11 +138,11 @@ codeAnalysisJob.with {
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''|sonar.projectKey=${SONAR_PROJECT_KEY}
+            properties('''|sonar.projectKey=${PROJECT_NAME_KEY}
             |sonar.projectName=${PROJECT_NAME}
             |sonar.projectVersion=0.0.${B}
             |sonar.language=js
-            |sonar.sources=app/scripts
+            |sonar.sources=app
             |sonar.scm.enabled=false
             '''.stripMargin())
             javaOpts()
@@ -175,6 +173,7 @@ deployToCIEnvJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -194,23 +193,16 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
-                |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')_${ENVIRONMENT_NAME}"
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+                |
+                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |docker-compose up -d --force-recreate
                 |
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |
-                |#NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |#CI_HOST=${NodeAppCI}
-                |#project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
-                |# Copy the docker-compose configuration file on CI host
-                |#scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${CI_HOST}:~/docker-compose.yml
-                |# Run docker-compose.test.yml on CI host
-                |#ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |#echo "Deploy to CI environment completed"
-                |#echo "http://${NAMESPACE}-ci.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
     }
@@ -456,6 +448,7 @@ deployToProdNode1Job.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","PROD1","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -512,6 +505,7 @@ deployToProdNode2Job.with {
     parameters {
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
