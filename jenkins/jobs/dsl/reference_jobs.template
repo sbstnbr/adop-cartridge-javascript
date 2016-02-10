@@ -33,9 +33,11 @@ pipelineView.with {
 buildAppJob.with {
     description("Build nodejs reference app")
     environmentVariables {
-        propertiesFile('env.properties')
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('GIT_REPOSITORY_NAME', GIT_REPOSITORY_NAME)
+        env('GIT_REPOSITORY_URL', GIT_REPOSITORY_URL)
+        env('GIT_REPOSITORY_BRANCH', GIT_REPOSITORY_BRANCH)
     }
     wrappers {
         preBuildCleanup()
