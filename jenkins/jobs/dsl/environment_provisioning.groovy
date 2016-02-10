@@ -133,7 +133,6 @@ destroyEnvironmentJob.with{
         env('WORKSPACE_NAME',workspaceFolderName)
         env('PROJECT_NAME',projectFolderName)
         env('PROJECT_NAME_KEY',projectNameKey)
-        env('FULL_ENVIRONMENT_NAME',fullEnvironmentName)
     }
     steps {
         shell('''#!/bin/bash -e
