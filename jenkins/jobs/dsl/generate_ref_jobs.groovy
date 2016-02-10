@@ -33,21 +33,15 @@ pipelineView.with {
 // Setup Load_Cartridge
 buildAppJob.with {
     description("Build nodejs reference app")
+    parameters{
+        stringParam("GIT_REPOSITORY","aowp-reference-application","Repository name to build the project from.")
+    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
     }
     wrappers {
         preBuildCleanup()
-    }
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
     }
     steps {
         conditionalSteps {
@@ -64,6 +58,19 @@ buildAppJob.with {
                         |set -x'''.stripMargin())
             }
         }
+    }
+    steps {
+      shell ('''set +x
+            |set +e
+            |git ls-remote ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} 2> /dev/null
+            |ret=$?
+            |set -e
+            |if [ ${ret} != 0 ]; then
+            | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
+            | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
+            |else
+            | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
+            |fi'''.stripMargin())
     }
     steps {
         shell('''set +x
