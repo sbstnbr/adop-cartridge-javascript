@@ -27,7 +27,8 @@ generateNodeReferenceAppJobs.with {
             |ret=$?
             |set -e
             |if [ ${ret} != 0 ]; then
-            | echo "Repository not exists. Will be created."
+            | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
+            | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
             |else
             | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
             |fi

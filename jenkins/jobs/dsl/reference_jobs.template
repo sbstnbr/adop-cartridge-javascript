@@ -60,6 +60,8 @@ buildAppJob.with {
     }
     steps {
         shell('''#!/bin/bash -ex
+#Clone source code
+git clone ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME} .
 repo_namespace="${PROJECT_NAME}"
 permissions_repo="${repo_namespace}/permissions"
 
@@ -106,8 +108,7 @@ repo_url=${GIT_REPOSITORY_URL}
     fi
 
     cd ${WORKSPACE}
-    #Clone source code
-    git clone -b ${GIT_REPOSITORY_BRANCH} ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME} .
+    git checkout -b ${GIT_REPOSITORY_BRANCH}
     ''')
     }
     steps {
