@@ -34,6 +34,7 @@ buildAppJob.with {
     description("Build nodejs reference app")
     parameters {
         stringParam("GIT_REPOSITORY_URL", "ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git", "Git Repository URL to build the project from.")
+        stringParam("GIT_REPOSITORY_BRANCH", "master", "Git Repository URL to build the project from.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -75,7 +76,7 @@ buildAppJob.with {
     steps {
         shell('''#!/bin/bash -ex
 #Clone source code
-git clone ${GIT_REPOSITORY_URL} .
+git clone -b ${GIT_REPOSITORY_BRANCH} ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} .
 repo_namespace="${PROJECT_NAME}"
 permissions_repo="${repo_namespace}/permissions"
 
