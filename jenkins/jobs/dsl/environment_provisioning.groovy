@@ -38,6 +38,7 @@ createEnvironmentJob.with{
         shell('''#!/bin/bash -e
 
 # Token constants
+TOKEN_UPSTREAM_NAME="###TOKEN_UPSTREAM_NAME###"
 TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
 TOKEN_IP="###TOKEN_IP###"
 TOKEN_PORT="###TOKEN_PORT###"
@@ -70,6 +71,7 @@ for node_name in ${node_names_list[@]}; do
     then
         export SERVICE_NAME="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
         export ENVIRONMENT_NAME="prod${SITE_NAME}"
+        sed -i "s/${TOKEN_UPSTREAM_NAME}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/${TOKEN_NAMESPACE}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/###TOKEN_NODEAPP_${SITE_NAME}_IP###/${SERVICE_NAME}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/###TOKEN_NODEAPP_${SITE_NAME}_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
@@ -87,6 +89,7 @@ for node_name in ${node_names_list[@]}; do
 
     # Genrate nginx configuration
     cp environment/nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+    sed -i "s/${TOKEN_UPSTREAM_NAME}/${PROJECT_NAME_KEY}/g" ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
