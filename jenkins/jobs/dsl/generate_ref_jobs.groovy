@@ -365,7 +365,7 @@ securityTestsJob.with{
                 |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )${BUILD_NUMBER}
                 |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
                 |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
-                |APP_URL=http://${APP_NAME}.${STACK_IP}.xip.io
+                |APP_URL=http://john.smith:Password01@${APP_NAME}.${STACK_IP}.xip.io
                 |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
                 |   ${JENKINS_HOME}/tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
                 |
@@ -412,8 +412,7 @@ securityTestsJob.with{
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
-                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
+                |${JENKINS_HOME}/tools/docker rm --force $(docker ps --all -q -f exited=0) || exit 0
                 '''.stripMargin())
     }
     publishers {
