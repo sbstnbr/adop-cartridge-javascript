@@ -31,6 +31,9 @@ createEnvironmentJob.with{
         env('PROJECT_NAME_KEY',projectNameKey)
         env('FULL_ENVIRONMENT_NAME',fullEnvironmentName)
     }
+    wrappers {
+        preBuildCleanup()
+    }
     steps {
         shell('''#!/bin/bash -e
 
@@ -60,9 +63,9 @@ for node_name in ${node_names_list[@]}; do
   nginx_sites_enabled_file="${full_site_name}.conf"
 
   SITE_NAME=$(echo ${node_name} | sed "s/NodeApp//g")
-    
+
   echo "${node_name}=${full_site_name}" >> endpoints.txt
-    
+
     if [ "${SITE_NAME}" != "CI" ]
     then
         SERVICE_NAME="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
