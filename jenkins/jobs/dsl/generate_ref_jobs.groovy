@@ -34,8 +34,8 @@ generateNodeReferenceAppJobs.with {
             |fi
 
             echo "GIT_REPOSITORY_NAME=$GIT_REPOSITORY" > env.properties
-            echo "GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL" > env.properties
-            echo "GIT_REPOSITORY_BRANCH=$GIT_REPOSITORY_BRANCH" > env.properties
+            echo "GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL" >> env.properties
+            echo "GIT_REPOSITORY_BRANCH=$GIT_REPOSITORY_BRANCH" >> env.properties
 
 
             '''.stripMargin())
