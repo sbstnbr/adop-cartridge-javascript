@@ -39,7 +39,7 @@ TOKEN_IP="###TOKEN_IP###"
 TOKEN_PORT="###TOKEN_PORT###"
 
 # Define required variables
-FULL_ENVIRONMENT_NAME=$( echo "${PROJECT_NAME}" | sed "s#[\/_ ]#-#g" )
+FULL_ENVIRONMENT_NAME=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
 FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]' '[:lower:]')
 
 node_names_list=(NodeAppCI NodeApp1 NodeApp2)
