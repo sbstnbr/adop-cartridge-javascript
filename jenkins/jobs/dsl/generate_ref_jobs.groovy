@@ -4,7 +4,9 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
+def zapProxyTestGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/zap-proxy-test.git"
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -31,9 +33,6 @@ pipelineView.with {
 // Setup Load_Cartridge
 buildAppJob.with {
     description("Build nodejs reference app")
-    parameters{
-        stringParam("GIT_REPOSITORY","nodeReferenceAppGitUrl","Repository name to build the project from.")
-    }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
@@ -41,72 +40,14 @@ buildAppJob.with {
     wrappers {
         preBuildCleanup()
     }
-    steps {
-        shell('''set +x
-            |set +e
-            |git ls-remote ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} 2> /dev/null
-            |ret=$?
-            |set -e
-            |if [ ${ret} != 0 ]; then
-            | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
-            | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
-            |else
-            | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists!"
-            |fi'''.stripMargin())
-    }
-    steps {
-        shell('''#!/bin/bash -ex
-
-# Clone nodeReferenceAppGitUrl
-git clone ${GIT_REPOSITORY} git_repository
-
-repo_namespace="${PROJECT_NAME}"
-permissions_repo="${repo_namespace}/permissions"
-
-# We trust everywhere
-echo -e "#!/bin/sh\nexec ssh -o StrictHostKeyChecking=no \"\\\$@\"\n" > ${WORKSPACE}/custom_ssh
-chmod +x ${WORKSPACE}/custom_ssh
-export GIT_SSH="${WORKSPACE}/custom_ssh"
-
-# Create repositories
-mkdir ${WORKSPACE}/tmp
-cd ${WORKSPACE}/tmp
-repo_url=${GIT_REPOSITORY}
-    if [ ! -z "${repo_url}" ]; then
-        repo_name=$(echo "${repo_url}" | rev | cut -d'/' -f1 | rev | sed 's#.git$##g')
-        target_repo_name="${repo_namespace}/${repo_name}"
-        # Check if the repository already exists or not
-        repo_exists=0
-        list_of_repos=$(ssh -n -i "${JENKINS_HOME}/.ssh/id_rsa" -o StrictHostKeyChecking=no -p 29418 gerrit.service.adop.consul gerrit ls-projects --type code)
-
-        for repo in ${list_of_repos}
-        do
-            if [ ${repo} = ${target_repo_name} ]; then
-                echo "Found: ${repo}"
-                repo_exists=1
-                break
-            fi
-        done
-
-        # If not, create it
-        if [ ${repo_exists} -eq 0 ]; then
-            ssh -n -o StrictHostKeyChecking=no -i ${JENKINS_HOME}/.ssh/id_rsa -p 29418 gerrit.service.adop.consul gerrit create-project --parent "${permissions_repo}" "${target_repo_name}"
-        else
-            echo "Repository already exists, skipping create: ${target_repo_name}"
-        fi
-
-        # Populate repository
-        git clone ssh://jenkins@gerrit.service.adop.consul:29418/"${target_repo_name}"
-        cd "${repo_name}"
-        git remote add source "${repo_url}"
-        git fetch source
-        git push origin +refs/remotes/source/*:refs/heads/*
-        cd -
-        export nodeReferenceAppGitUrl=${repo_url}
-    fi
-
-''')
-
+    scm {
+        git {
+            remote {
+                url(nodeReferenceAppGitUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/develop")
+        }
     }
     steps {
         conditionalSteps {
@@ -356,14 +297,17 @@ securityTestsJob.with{
     scm {
         git {
             remote {
-                url(nodeReferenceAppGitUrl)
+                url(zapProxyTestGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/develop")
+            branch("*/master")
         }
     }
     wrappers {
         preBuildCleanup()
+        credentialsBinding {
+            usernamePassword("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "aws-environment-provisioning")
+        }
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -386,41 +330,79 @@ securityTestsJob.with{
             }
         }
     }
+    steps {
+        conditionalSteps{
+            condition{
+                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
+            }
+            runner("Fail")
+            steps{
+                shell('''set +x
+                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
+                        |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
+                        |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
+                        |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
+                        |set -x
+                        '''.stripMargin())
+            }
+        }
+    }
+    steps{
+        conditionalSteps{
+            condition{
+                shell('test ! -f "${JENKINS_HOME}/tools/jq"')
+            }
+            runner('Fail')
+            steps{
+                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
+                        |chmod +x "${JENKINS_HOME}/tools/jq"
+                        '''.stripMargin())
+            }
+        }
+    }
     steps{
         shell('''echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )${BUILD_NUMBER}
                 |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
                 |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
+                |APP_URL=http://${APP_NAME}.${STACK_IP}.xip.io
+                |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
+                |   ${JENKINS_HOME}/tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
                 |
                 |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
                 |echo PROJECT_NAME_TO_LOWER=$PROJECT_NAME_TO_LOWER >> app.properties
                 |echo APP_NAME=$APP_NAME >> app.properties
+                |echo APP_URL=$APP_URL >> app.properties
+                |echo ZAP_IP=$ZAP_IP >> app.properties
                 '''.stripMargin())
         environmentVariables {
             propertiesFile('app.properties')
         }
     }
     steps{
-        conditionalSteps{
-            condition{
-                shell('${JENKINS_HOME}/tools/docker top $CONTAINER_NAME!="FATA[0000] Error response from daemon: no such id: "$CONTAINER_NAME')
-            }
-            runner('Fail')
-            steps{
-                shell('''${JENKINS_HOME}/tools/docker stop $CONTAINER_NAME
-                        |${JENKINS_HOME}/tools/docker rm $CONTAINER_NAME
-                        '''.stripMargin())
-            }
-        }
         shell('''echo "Running automation tests"
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
                 |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |   /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |
+                |echo "Running Selenium tests through maven."
                 |sleep 30s
+                |
+                |# Setting up variables for Maven
+                |ZAP_PORT="9090"
+                |ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${CONTAINER_NAME} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
+                |echo "ZAP_PORT=${ZAP_PORT}" >> app.properties
                 '''.stripMargin())
-
+        environmentVariables {
+            propertiesFile('app.properties')
+        }
+        maven {
+              goals("clean")
+              goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
+              mavenInstallation("ADOP Maven")
+        }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
                 |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
                 |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
@@ -430,6 +412,8 @@ securityTestsJob.with{
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
+                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
+                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
                 '''.stripMargin())
     }
     publishers {
@@ -556,6 +540,18 @@ deployToProdNode1Job.with {
                 |echo "http://${NAMESPACE}-1.${STACK_IP}.xip.io"
                 |
                 |set -x'''.stripMargin())
+    }
+    publishers {
+        downstreamParameterized {
+            trigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
+            }
+        }
+
     }
 }
 
