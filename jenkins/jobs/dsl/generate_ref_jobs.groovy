@@ -6,7 +6,7 @@ def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
-def zapProxyTestGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/zap-proxy-test.git"
+def zapProxyTestGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-security-tests.git"
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
