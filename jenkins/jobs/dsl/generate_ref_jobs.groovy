@@ -4,7 +4,6 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 def zapProxyTestGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/zap-proxy-test.git"
 
@@ -33,8 +32,8 @@ pipelineView.with {
 // Setup Load_Cartridge
 buildAppJob.with {
     description("Build nodejs reference app")
-    parameters{
-        stringParam("GIT_REPOSITORY","aowp-reference-application","Repository name to build the project from.")
+    parameters {
+        stringParam("GIT_REPOSITORY_URL", "ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git", "Git Repository URL to build the project from.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -51,7 +50,7 @@ buildAppJob.with {
             runner('Fail')
             steps {
                 shell('''set +x
-                        |DOCKER_VERSION=1.7.1
+                        |DOCKER_VERSION=1.6.0
                         |mkdir -p ${JENKINS_HOME}/tools
                         |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
                         |chmod +x "${JENKINS_HOME}/tools/docker"
@@ -60,17 +59,67 @@ buildAppJob.with {
         }
     }
     steps {
-      shell ('''set +x
+        shell('''set +x
             |set +e
-            |git ls-remote ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} 2> /dev/null
+            |git ls-remote ${GIT_REPOSITORY_URL} 2> /dev/null
             |ret=$?
             |set -e
             |if [ ${ret} != 0 ]; then
+            | GIT_REPOSITORY = $(git ls-remote ${GIT_REPOSITORY_URL} | sed -n 's#.*/\\([^.]*\\)\\.git#\\1#p')
             | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
             | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
             |else
             | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
             |fi'''.stripMargin())
+    }
+    steps {
+        shell('''#!/bin/bash -ex
+
+repo_namespace="${PROJECT_NAME}"
+permissions_repo="${repo_namespace}/permissions"
+
+# We trust everywhere
+echo -e "#!/bin/sh\nexec ssh -o StrictHostKeyChecking=no \"\\\$@\"\n" > ${WORKSPACE}/custom_ssh
+chmod +x ${WORKSPACE}/custom_ssh
+export GIT_SSH="${WORKSPACE}/custom_ssh"
+
+# Create repositories
+mkdir ${WORKSPACE}/tmp
+cd ${WORKSPACE}/tmp
+
+while read repo_url; do
+    if [ ! -z "${repo_url}" ]; then
+        repo_name=$(echo "${repo_url}" | rev | cut -d'/' -f1 | rev | sed 's#.git$##g')
+        target_repo_name="${repo_namespace}/${repo_name}"
+        # Check if the repository already exists or not
+        repo_exists=0
+        list_of_repos=$(ssh -n -i "${JENKINS_HOME}/.ssh/id_rsa" -o StrictHostKeyChecking=no -p 29418 gerrit.service.adop.consul gerrit ls-projects --type code)
+
+        for repo in ${list_of_repos}
+        do
+            if [ ${repo} = ${target_repo_name} ]; then
+                echo "Found: ${repo}"
+                repo_exists=1
+                break
+            fi
+        done
+
+        # If not, create it
+        if [ ${repo_exists} -eq 0 ]; then
+            ssh -n -o StrictHostKeyChecking=no -i ${JENKINS_HOME}/.ssh/id_rsa -p 29418 gerrit.service.adop.consul gerrit create-project --parent "${permissions_repo}" "${target_repo_name}"
+        else
+            echo "Repository already exists, skipping create: ${target_repo_name}"
+        fi
+
+        # Populate repository
+        git clone ssh://jenkins@gerrit.service.adop.consul:29418/"${target_repo_name}"
+        cd "${repo_name}"
+        git remote add source "${repo_url}"
+        git fetch source
+        git push origin +refs/remotes/source/*:refs/heads/*
+        cd -
+    fi
+    done < ${CARTRIDGE_CLONE_URL}''')
     }
     steps {
         shell('''set +x
@@ -132,7 +181,7 @@ buildAppJob.with {
             trigger(projectFolderName + "/Code_Analysis") {
                 condition("UNSTABLE_OR_BETTER")
                 parameters {
-                    predefinedProp("B",'${BUILD_NUMBER}')
+                    predefinedProp("B", '${BUILD_NUMBER}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
@@ -142,9 +191,9 @@ buildAppJob.with {
 
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+    parameters {
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -190,9 +239,9 @@ codeAnalysisJob.with {
 
 deployToCIEnvJob.with {
     description("Deploy CI Environment Job")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+    parameters {
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -245,9 +294,9 @@ deployToCIEnvJob.with {
 
 functionalTestsJob.with {
     description("Run functional tests for nodejs reference app")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+    parameters {
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -295,11 +344,11 @@ functionalTestsJob.with {
     }
 }
 
-securityTestsJob.with{
+securityTestsJob.with {
     description("Tests nodejs reference app with OWASP ZAP")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+    parameters {
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     scm {
         git {
@@ -338,12 +387,12 @@ securityTestsJob.with{
         }
     }
     steps {
-        conditionalSteps{
-            condition{
+        conditionalSteps {
+            condition {
                 shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
             }
             runner("Fail")
-            steps{
+            steps {
                 shell('''set +x
                         |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
                         |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
@@ -354,20 +403,20 @@ securityTestsJob.with{
             }
         }
     }
-    steps{
-        conditionalSteps{
-            condition{
+    steps {
+        conditionalSteps {
+            condition {
                 shell('test ! -f "${JENKINS_HOME}/tools/jq"')
             }
             runner('Fail')
-            steps{
+            steps {
                 shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
                         |chmod +x "${JENKINS_HOME}/tools/jq"
                         '''.stripMargin())
             }
         }
     }
-    steps{
+    steps {
         shell('''echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )${BUILD_NUMBER}
                 |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
@@ -386,7 +435,7 @@ securityTestsJob.with{
             propertiesFile('app.properties')
         }
     }
-    steps{
+    steps {
         shell('''echo "Running automation tests"
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
@@ -406,9 +455,9 @@ securityTestsJob.with{
             propertiesFile('app.properties')
         }
         maven {
-              goals("clean")
-              goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
-              mavenInstallation("ADOP Maven")
+            goals("clean")
+            goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
+            mavenInstallation("ADOP Maven")
         }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
                 |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
@@ -426,8 +475,8 @@ securityTestsJob.with{
     publishers {
         archiveArtifacts("*.html")
     }
-    configure{myProject ->
-        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
+    configure { myProject ->
+        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin: 'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
             reportDir('${WORKSPACE}')
             reportFiles('test-${BUILD_NUMBER}-report.html')
@@ -452,9 +501,9 @@ securityTestsJob.with{
 
 performanceTestsJob.with {
     description("Run technical tests fot nodejs reference app")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+    parameters {
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     wrappers {
         preBuildCleanup()
@@ -482,13 +531,13 @@ performanceTestsJob.with {
     steps {
         shell('''echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"'''.stripMargin())
     }
-    steps{
+    steps {
         maven {
             goals("gatling:execute")
             mavenInstallation("ADOP Maven")
         }
     }
-    configure{ myProject ->
+    configure { myProject ->
         myProject / publishers << 'io.gatling.jenkins.GatlingPublisher'(plugin: "gatling@1.1.1") {
             enabled("true")
         }
@@ -508,9 +557,9 @@ performanceTestsJob.with {
 
 deployToProdNode1Job.with {
     description("Deploy nodejs reference app to Node A")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+    parameters {
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -565,8 +614,8 @@ deployToProdNode1Job.with {
 deployToProdNode2Job.with {
     description("Deploy nodejs reference app to Node B")
     parameters {
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("B", '', "Parent build number")
+        stringParam("PARENT_BUILD", '', "Parent build name")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
