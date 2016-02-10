@@ -3,7 +3,7 @@ def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 
 // Variables
-def environmentTemplateGitUrl = "ssh://git@uat.alm.accenture.com/ado7/cartridge-aowp-v5.git"
+def environmentTemplateGitUrl = "ssh://jenkins@gerrit:29418/cartridges/adop-cartridge-aowp.git"
 def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 def fullEnvironmentName = projectFolderName.replace("/", "-");
 
