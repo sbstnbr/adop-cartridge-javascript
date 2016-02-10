@@ -4,7 +4,7 @@ def projectFolderName = "${PROJECT_NAME}"
 def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
+//def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit.service.adop.consul:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
@@ -19,6 +19,79 @@ def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
+
+generateNodeReferenceAppGitUrl.with{
+    parameters{
+        stringParam("GIT_REPOSITORY","nodeReferenceAppGitUrl","Repository name to build the project from.")
+    }
+
+    steps {
+        shell('''set +x
+            |set +e
+            |git ls-remote ssh://gerrit.service.adop.consul:29418/${PROJECT_NAME}/${GIT_REPOSITORY} 2> /dev/null
+            |ret=$?
+            |set -e
+            |if [ ${ret} != 0 ]; then
+            | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
+            | ssh -p 29418 gerrit.service.adop.consul gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
+            |else
+            | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists!"
+            |fi'''.stripMargin())
+    }
+    steps {
+        shell('''#!/bin/bash -ex
+
+# Clone nodeReferenceAppGitUrl
+git clone ${GIT_REPOSITORY} git_repository
+
+repo_namespace="${PROJECT_NAME}"
+permissions_repo="${repo_namespace}/permissions"
+
+# We trust everywhere
+echo -e "#!/bin/sh\nexec ssh -o StrictHostKeyChecking=no \"\\\$@\"\n" > ${WORKSPACE}/custom_ssh
+chmod +x ${WORKSPACE}/custom_ssh
+export GIT_SSH="${WORKSPACE}/custom_ssh"
+
+# Create repositories
+mkdir ${WORKSPACE}/tmp
+cd ${WORKSPACE}/tmp
+repo_url=${GIT_REPOSITORY}
+    if [ ! -z "${repo_url}" ]; then
+        repo_name=$(echo "${repo_url}" | rev | cut -d'/' -f1 | rev | sed 's#.git$##g')
+        target_repo_name="${repo_namespace}/${repo_name}"
+        # Check if the repository already exists or not
+        repo_exists=0
+        list_of_repos=$(ssh -n -i "${JENKINS_HOME}/.ssh/id_rsa" -o StrictHostKeyChecking=no -p 29418 gerrit.service.adop.consul gerrit ls-projects --type code)
+
+        for repo in ${list_of_repos}
+        do
+            if [ ${repo} = ${target_repo_name} ]; then
+                echo "Found: ${repo}"
+                repo_exists=1
+                break
+            fi
+        done
+
+        # If not, create it
+        if [ ${repo_exists} -eq 0 ]; then
+            ssh -n -o StrictHostKeyChecking=no -i ${JENKINS_HOME}/.ssh/id_rsa -p 29418 gerrit.service.adop.consul gerrit create-project --parent "${permissions_repo}" "${target_repo_name}"
+        else
+            echo "Repository already exists, skipping create: ${target_repo_name}"
+        fi
+
+        # Populate repository
+        git clone ssh://jenkins@gerrit.service.adop.consul:29418/"${target_repo_name}"
+        cd "${repo_name}"
+        git remote add source "${repo_url}"
+        git fetch source
+        git push origin +refs/remotes/source/*:refs/heads/*
+        cd -
+    fi
+
+''')
+
+    }
+}
 
 pipelineView.with {
     title('ADOP Nodeapp Pipeline')
