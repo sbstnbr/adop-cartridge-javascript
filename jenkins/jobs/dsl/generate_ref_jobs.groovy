@@ -75,7 +75,7 @@ buildAppJob.with {
     steps {
         shell('''#!/bin/bash -ex
 #Clone source code
-git clone ${GIT_REPOSITORY_URL}
+git clone ${GIT_REPOSITORY_URL} .
 repo_namespace="${PROJECT_NAME}"
 permissions_repo="${repo_namespace}/permissions"
 
