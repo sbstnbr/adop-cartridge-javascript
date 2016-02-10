@@ -165,11 +165,11 @@ repo_url=${GIT_REPOSITORY_URL}
                 gerritxml / 'gerritProjects' {
                     'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.GerritProject' {
                         compareType("PLAIN")
-                        pattern(projectFolderName + "/"+${GIT_REPOSITORY_NAME}+"")
+                        pattern(projectFolderName + "/${GIT_REPOSITORY_NAME}")
                         'branches' {
                             'com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger.data.Branch' {
                                 compareType("PLAIN")
-                                pattern(${GIT_REPOSITORY_BRANCH})
+                                pattern("${GIT_REPOSITORY_BRANCH}")
                             }
                         }
                     }
