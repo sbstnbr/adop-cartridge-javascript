@@ -103,7 +103,7 @@ repo_url=${GIT_REPOSITORY}
         git fetch source
         git push origin +refs/remotes/source/*:refs/heads/*
         cd -
-        EXPORT nodeReferenceAppGitUrl=${repo_url}
+        export nodeReferenceAppGitUrl=${repo_url}
     fi
 
 ''')
