@@ -30,8 +30,6 @@ createEnvironmentJob.with{
     }
     steps {
         shell('''#!/bin/bash -e
-# Login to docker.accenture.com
-docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
 
 # Token constants
 TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
@@ -43,7 +41,6 @@ FULL_ENVIRONMENT_NAME=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" )
 FULL_ENVIRONMENT_NAME_LOWERCASE=$(echo ${FULL_ENVIRONMENT_NAME} | tr '[:upper:]' '[:lower:]')
 
 node_names_list=(NodeAppCI NodeApp1 NodeApp2)
-CONTAINER_BUILD_NUMBER="27"
 
 echo "FULL_ENVIRONMENT_NAME=$FULL_ENVIRONMENT_NAME" > endpoints.txt
 
@@ -54,11 +51,6 @@ cp environment/nginx/nodeapp.conf ${nginx_main_env_conf}
 # Copy public NGINX config
 nginx_public_env_conf="${FULL_ENVIRONMENT_NAME_LOWERCASE}-public.conf"
 cp environment/nginx/nodeapp-public.conf ${nginx_public_env_conf}
-
-# Check if docker-compose file already exists, if yes, delete it
-if [ -f docker-compose.yml ]; then
-rm docker-compose.yml
-fi
 
 # Loop trough the node list starting containers and generating nginx configuration
 for node_name in ${node_names_list[@]}; do
@@ -83,40 +75,20 @@ for node_name in ${node_names_list[@]}; do
       docker cp ${nginx_public_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_public_env_conf}
     fi
 
-# Generate docker-compose block for the selected node
-cat >> docker-compose.yml <<EOF
-${node_name_lowercase}:
-  container_name: ${SERVICE_NAME}
-  restart: always
-  image: docker.accenture.com/aowp/nodejs-a_owp:${CONTAINER_BUILD_NUMBER}
-  net: ${DOCKER_NETWORK_NAME}
-  volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-  privileged: true
-  expose:
-    - "8080"
-  labels:
-    - "PROJECT_NAME=${PROJECT_NAME}"
-    - "ENVIRONMENT_NAME=${SITE_NAME}"
-    - "ENVIRONMENT_TYPE=nodejs"
-EOF
+    # Run the docker container for the current node
+    environment_configs_mask="${FULL_ENVIRONMENT_NAME_LOWERCASE}*"
 
-  # Genrate nginx configuration
+    # Genrate nginx configuration
     cp environment/nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
     sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
 
-  # Copy the generated configuration file to nginx container
-  docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+    echo "Address for ${node_name}: http://${SERVICE_NAME}.<INSTANCE_IP>.xip.io/"
+    # Copy the generated configuration file to nginx container
+    docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
 done
 
-# Run the newly generated docker compose file
-environment_configs_mask="${FULL_ENVIRONMENT_NAME_LOWERCASE}*"
-docker-compose -p ${FULL_ENVIRONMENT_NAME} up -d
-
-# Show the running containers for NodeJs
-docker ps | grep nodejs-a_owp
 # Reload Nginx configuration
 docker exec proxy /usr/sbin/nginx -s reload
 ''')
@@ -175,9 +147,6 @@ for node_name in ${node_names_list[@]}; do
     nginx_sites_enabled_file="${FULL_ENVIRONMENT_NAME_LOWERCASE}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
     full_node_name="${FULL_ENVIRONMENT_NAME}-${node_name}"
     docker exec -i proxy rm /etc/nginx/sites-enabled/${nginx_sites_enabled_file}
-    container_id=$(docker ps --format "{{.ID}}: {{.Names}}" | grep ${full_node_name} | cut -f1 -d":")
-    docker stop ${container_id%?}
-    docker rm -f ${container_id%?}
 done
 
 # Reload Nginx configuration
@@ -185,39 +154,4 @@ echo "Reloading Nginx configuration"
 docker exec proxy /usr/sbin/nginx -s reload
 ''')
     }
-}
-
-createIrisFrontEndJob.with{
-  description("This job builds Java Spring reference application")
-  wrappers {
-    preBuildCleanup()
-    injectPasswords()
-    maskPasswords()
-    sshAgent("adop-jenkins-master")
-  }
-  scm{
-    git{
-      remote{
-        url("git@innersource.accenture.com:iris/iris-front.git")
-        credentials("adop-jenkins-master")
-      }
-      branch("*/hackathon-iris")
-    }
-  }
-  environmentVariables {
-      env('WORKSPACE_NAME',workspaceFolderName)
-      env('PROJECT_NAME',projectFolderName)
-  }
-  label("docker")
-  steps {
-    shell('''set +x
-            |export SERVICE_NAME="$(echo ${PROJECT_NAME} | tr '/' '_')"
-            |docker-compose up -p ${SERVICE_NAME} -d  --force-recreate
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |echo "Environment URL (replace PUBLIC_IP with your public ip address where you access jenkins from) : http://iris_frontend.PUBLIC_IP.xip.io"
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-            |set -x'''.stripMargin())
-  }
 }
