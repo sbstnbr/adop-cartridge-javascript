@@ -195,6 +195,9 @@ deployToCIEnvJob.with {
         shell('''set +x
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
+                |docker stop ${SERVICE_NAME}
+                |docker rm -f ${SERVICE_NAME}
+                |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
                 |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
@@ -299,12 +302,24 @@ securityTestsJob.with{
     steps {
         conditionalSteps{
             condition{
+                shell('test ! -d ${JENKINS_HOME}/tools')
+            }
+            runner("Fail")
+            steps{
+                shell('''set +x
+                        |mkdir ${JENKINS_HOME}/tools
+                        |set -x
+                        '''.stripMargin())
+            }
+        }
+        conditionalSteps{
+            condition{
                 shell('test ! -f ${JENKINS_HOME}/tools/.aws/bin/aws')
             }
             runner("Fail")
             steps{
                 shell('''set +x
-                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O ${JENKINS_HOME}/tools/awscli-bundle.zip
+                        |wget -P ${JENKINS_HOME}/tools/ https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet
                         |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
                         |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
                         |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
@@ -325,7 +340,7 @@ securityTestsJob.with{
         }
         shell('''echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"${PROJECT_NAME_KEY}${BUILD_NUMBER}
-                |APP_NAME=${PROJECT_NAME_KEY}"-ci"
+                |APP_NAME=${PROJECT_NAME_KEY}"-CI"
                 |APP_URL=http://john.smith:Password01@${APP_NAME}.${STACK_IP}.xip.io
                 |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
                 |   ${JENKINS_HOME}/tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
@@ -480,6 +495,9 @@ deployToProdNode1Job.with {
         shell('''set +x
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
+                |docker stop ${SERVICE_NAME}
+                |docker rm -f ${SERVICE_NAME}
+                |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
                 |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
@@ -536,6 +554,9 @@ deployToProdNode2Job.with {
     steps {
         shell('''set +x
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+                |
+                |docker stop ${SERVICE_NAME}
+                |docker rm -f ${SERVICE_NAME}
                 |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
                 |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
