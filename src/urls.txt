@@ -1,3 +1,4 @@
 ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git
 ssh://git@uat.alm.accenture.com/ado7/environment_template.git
 ssh://git@uat.alm.accenture.com/ado7/aowp-performance-tests.git
+ssh://git@uat.alm.accenture.com/ado7/aowp-security-tests.git

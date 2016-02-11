@@ -291,11 +291,11 @@ functionalTestsJob.with {
     }
 }
 
-securityTestsJob.with {
+securityTestsJob.with{
     description("Tests nodejs reference app with OWASP ZAP")
-    parameters {
-        stringParam("B", '', "Parent build number")
-        stringParam("PARENT_BUILD", '', "Parent build name")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
     }
     scm {
         git {
@@ -334,12 +334,12 @@ securityTestsJob.with {
         }
     }
     steps {
-        conditionalSteps {
-            condition {
+        conditionalSteps{
+            condition{
                 shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
             }
             runner("Fail")
-            steps {
+            steps{
                 shell('''set +x
                         |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
                         |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
@@ -350,25 +350,25 @@ securityTestsJob.with {
             }
         }
     }
-    steps {
-        conditionalSteps {
-            condition {
+    steps{
+        conditionalSteps{
+            condition{
                 shell('test ! -f "${JENKINS_HOME}/tools/jq"')
             }
             runner('Fail')
-            steps {
+            steps{
                 shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
                         |chmod +x "${JENKINS_HOME}/tools/jq"
                         '''.stripMargin())
             }
         }
     }
-    steps {
+    steps{
         shell('''echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"$( echo ${PROJECT_NAME} | sed 's#[ /]#_#g' )${BUILD_NUMBER}
                 |PROJECT_NAME_TO_LOWER=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]');
                 |APP_NAME=${PROJECT_NAME_TO_LOWER}"-ci"
-                |APP_URL=http://${APP_NAME}.${STACK_IP}.xip.io
+                |APP_URL=http://john.smith:Password01@${APP_NAME}.${STACK_IP}.xip.io
                 |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
                 |   ${JENKINS_HOME}/tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
                 |
@@ -382,7 +382,7 @@ securityTestsJob.with {
             propertiesFile('app.properties')
         }
     }
-    steps {
+    steps{
         shell('''echo "Running automation tests"
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
@@ -415,15 +415,14 @@ securityTestsJob.with {
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
                 |${JENKINS_HOME}/tools/docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |${JENKINS_HOME}/tools/docker stop ${CONTAINER_NAME}
-                |${JENKINS_HOME}/tools/docker rm ${CONTAINER_NAME}
+                |${JENKINS_HOME}/tools/docker rm --force $(docker ps --all -q -f exited=0) || exit 0
                 '''.stripMargin())
     }
     publishers {
         archiveArtifacts("*.html")
     }
-    configure { myProject ->
-        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin: 'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
+    configure{myProject ->
+        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
             reportDir('${WORKSPACE}')
             reportFiles('test-${BUILD_NUMBER}-report.html')
@@ -438,7 +437,7 @@ securityTestsJob.with {
             trigger(projectFolderName + "/Performance_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
