@@ -195,7 +195,7 @@ deployToCIEnvJob.with {
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |docker-compose -f docker-compose.deploy.yml up --force-recreate
+                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
@@ -231,6 +231,7 @@ gruntFunctionalTestsJob.with {
         env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -287,6 +288,13 @@ securityTestsJob.with{
     wrappers {
         preBuildCleanup()
     }
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
+    label("docker")
     steps {
         conditionalSteps{
             condition{
@@ -401,8 +409,10 @@ performanceTestsJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     scm {
         git {
             remote {
@@ -442,7 +452,7 @@ performanceTestsJob.with {
 }
 
 deployToProdNode1Job.with {
-    description("Deploy nodejs reference app to Node A")
+    description("Deploy AOWP reference app to PROD 1")
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
@@ -451,8 +461,10 @@ deployToProdNode1Job.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -469,18 +481,16 @@ deployToProdNode1Job.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |AOWP1_HOST="${NodeApp1}"
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on AOWP1 host
-                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP1_HOST}:~/docker-compose.yml
+                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
-                |# Run docker-compose.yml on PROD1 host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP1_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |
-                |echo "Deploy to PROD1 environment completed"
-                |echo "http://${NAMESPACE}-1.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |
                 |set -x'''.stripMargin())
     }
@@ -499,7 +509,7 @@ deployToProdNode1Job.with {
 }
 
 deployToProdNode2Job.with {
-    description("Deploy nodejs reference app to Node B")
+    description("Deploy AOWP reference app to PROD 2")
     parameters {
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
@@ -508,8 +518,10 @@ deployToProdNode2Job.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -526,18 +538,16 @@ deployToProdNode2Job.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |AOWP2_HOST="${NodeApp2}"
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on AOWP2 host
-                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP2_HOST}:~/docker-compose.yml
+                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
-                |# Run docker-compose.yml on PROD2 host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP2_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |
-                |echo "Deploy to PROD2 environment completed"
-                |echo "http://${NAMESPACE}-2.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |
                 |set -x'''.stripMargin())
     }
