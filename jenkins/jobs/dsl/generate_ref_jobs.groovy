@@ -1,10 +1,10 @@
 // Folders
 def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
-def sonarProjectKey = projectFolderName.toLowerCase().replace("/", "-");
+def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
-def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/hackathon-iris-aowp-ref-app.git";
+def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-reference-application.git";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 
 // Jobs
@@ -16,9 +16,6 @@ def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Nod
 def gruntFunctionalTestsJob = freeStyleJob(projectFolderName + "/Grunt_Functional_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
-def functionalTestsJob = freeStyleJob(projectFolderName + "/Functional_Tests")
-def imageCompareJob = freeStyleJob(projectFolderName + "/Image_Compare_Tests")
-def manualTestJob = freeStyleJob(projectFolderName + "/Manual_Tests")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -38,6 +35,7 @@ buildAppJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
     }
     label("docker")
     wrappers {
@@ -53,29 +51,12 @@ buildAppJob.with {
         }
     }
     steps {
-        conditionalSteps {
-            condition {
-                shell('test ! -f "${JENKINS_HOME}/tools/docker"')
-            }
-            runner('Fail')
-            steps {
-                shell('''set +x
-                        |DOCKER_VERSION=1.7.1
-                        |mkdir -p ${JENKINS_HOME}/tools
-                        |wget https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION} --quiet -O "${JENKINS_HOME}/tools/docker"
-                        |chmod +x "${JENKINS_HOME}/tools/docker"
-                        |set -x'''.stripMargin())
-            }
-        }
-    }
-    steps {
         shell('''set +x
                 |
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
-                |${JENKINS_HOME}/tools/docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
+                |docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker build -t docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER} .
+                |while ! docker build -t docker.accenture.com/aowp/${PROJECT_NAME_KEY}:${BUILD_NUMBER} .
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker build failed even after ${COUNT}. Please investigate."
@@ -86,7 +67,7 @@ buildAppJob.with {
                 |done
                 |
                 |COUNT=1
-                |while ! ${JENKINS_HOME}/tools/docker push docker.accenture.com/aowp/${project_name}:${BUILD_NUMBER}
+                |while ! docker push docker.accenture.com/aowp/${PROJECT_NAME_KEY}:${BUILD_NUMBER}
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker push failed even after ${COUNT}. Please investigate."
@@ -96,9 +77,6 @@ buildAppJob.with {
                 |  COUNT=$((COUNT+1))
                 |done
                 '''.stripMargin())
-    }
-    steps {
-        systemGroovyCommand(readFileFromWorkspace("${JENKINS_HOME}/scriptler/scripts/pipeline_params.groovy"))
     }
     triggers {
         gerrit {
@@ -145,7 +123,7 @@ codeAnalysisJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
-        env('SONAR_PROJECT_KEY', sonarProjectKey)
+        env('PROJECT_NAME_KEY', projectNameKey)
     }
     wrappers {
         preBuildCleanup()
@@ -159,11 +137,11 @@ codeAnalysisJob.with {
     }
     configure { myProject ->
         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''|sonar.projectKey=${SONAR_PROJECT_KEY}
+            properties('''|sonar.projectKey=${PROJECT_NAME_KEY}
             |sonar.projectName=${PROJECT_NAME}
             |sonar.projectVersion=0.0.${B}
             |sonar.language=js
-            |sonar.sources=app/scripts
+            |sonar.sources=app
             |sonar.scm.enabled=false
             '''.stripMargin())
             javaOpts()
@@ -189,12 +167,15 @@ deployToCIEnvJob.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -211,24 +192,22 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |CI_HOST=${NodeAppCI}
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on CI host
-                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${CI_HOST}:~/docker-compose.yml
+                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
-                |# Run docker-compose.test.yml on CI host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |
-                |echo "Deploy to CI environment completed"
-                |echo "http://${NAMESPACE}-ci.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |
                 |set -x'''.stripMargin())
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/Functional_Tests") {
+            trigger(projectFolderName + "/Grunt_Functional_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${B}')
@@ -244,11 +223,15 @@ gruntFunctionalTestsJob.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -265,18 +248,25 @@ gruntFunctionalTestsJob.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |CI_HOST="${NodeAppCI}"
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on CI host
-                |scp -o StrictHostKeyChecking=no docker-compose.test.yml ec2-user@${CI_HOST}:~/docker-compose.test.yml
+                |echo "Run functional tests on ${ENVIRONMENT_NAME} environment"
                 |
-                |# Run docker-compose.test.yml on CI host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${CI_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose -f docker-compose.test.yml up --force-recreate"
+                |docker-compose -f docker-compose.test.yml up --force-recreate
                 |
                 |echo "Functional tests completed."
                 |set -x'''.stripMargin())
+    }
+    publishers {
+        downstreamParameterized {
+            trigger(projectFolderName + "/Security_Tests") {
+                condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${B}')
+                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
+                }
+            }
+        }
     }
 }
 
@@ -298,6 +288,13 @@ securityTestsJob.with{
     wrappers {
         preBuildCleanup()
     }
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
+        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+    }
+    label("docker")
     steps {
         conditionalSteps{
             condition{
@@ -412,8 +409,10 @@ performanceTestsJob.with {
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     scm {
         git {
             remote {
@@ -453,16 +452,19 @@ performanceTestsJob.with {
 }
 
 deployToProdNode1Job.with {
-    description("Deploy nodejs reference app to Node A")
+    description("Deploy AOWP reference app to PROD 1")
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","PROD1","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -479,18 +481,16 @@ deployToProdNode1Job.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |AOWP1_HOST="${NodeApp1}"
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on AOWP1 host
-                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP1_HOST}:~/docker-compose.yml
+                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
-                |# Run docker-compose.yml on PROD1 host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP1_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |
-                |echo "Deploy to PROD1 environment completed"
-                |echo "http://${NAMESPACE}-1.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |
                 |set -x'''.stripMargin())
     }
@@ -509,16 +509,19 @@ deployToProdNode1Job.with {
 }
 
 deployToProdNode2Job.with {
-    description("Deploy nodejs reference app to Node B")
+    description("Deploy AOWP reference app to PROD 2")
     parameters {
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
+    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
@@ -535,150 +538,17 @@ deployToProdNode2Job.with {
     }
     steps {
         shell('''set +x
-                |NAMESPACE=$( echo "${PROJECT_NAME}" | sed "s#[\\/_ ]#-#g" | tr '[:upper:]' '[:lower:]' )
-                |AOWP2_HOST="${NodeApp2}"
-                |project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |# Copy the docker-compose configuration file on AOWP2 host
-                |scp -o StrictHostKeyChecking=no docker-compose.deploy.yml ec2-user@${AOWP2_HOST}:~/docker-compose.yml
+                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
                 |
-                |# Run docker-compose.yml on PROD2 host
-                |ssh -o StrictHostKeyChecking=no ec2-user@${AOWP2_HOST} "export project_name=${project_name}; export B=${B}; docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com; docker-compose up -d --force-recreate"
-                |
-                |echo "Deploy to PROD2 environment completed"
-                |echo "http://${NAMESPACE}-2.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |
                 |set -x'''.stripMargin())
     }
 }
-
-functionalTestsJob.with {
-    description("Functinal Test Job")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    scm {
-        git {
-            remote {
-                url('git@innersource.accenture.com:iris/iris-image-compare.git')
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    label("java8")
-    steps {
-        shell('''set +x
-                |mkdir -p ${WORKSPACE}/Images
-                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Image_Compare_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
-    }
-}
-
-imageCompareJob.with {
-    description("Image Compare Job")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    scm {
-        git {
-            remote {
-                url('git@innersource.accenture.com:iris/iris-image-compare.git')
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    label("java8")
-    steps {
-        shell('''set +x
-                |mkdir -p ${WORKSPACE}/Images
-                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Manual_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
-    }
-}
-
-
-manualTestJob.with {
-    description("Manual Test Job")
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    scm {
-        git {
-            remote {
-                url('git@innersource.accenture.com:iris/iris-image-compare.git')
-                credentials("adop-jenkins-master")
-            }
-            branch("*/develop")
-        }
-    }
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    label("java8")
-    steps {
-        shell('''set +x
-                |mkdir -p ${WORKSPACE}/Images
-                |java -jar image_compare.jar 1 5 ${WORKSPACE}/Images "http://createirisfrontend_iris-front_1/"
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Security_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-
-    }
-}
-
