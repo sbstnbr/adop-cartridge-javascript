@@ -69,8 +69,8 @@ for node_name in ${node_names_list[@]}; do
 
     if [ "${SITE_NAME}" != "CI" ]
     then
-        export SERVICE_NAME="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
-        export ENVIRONMENT_NAME="prod${SITE_NAME}"
+        export SERVICE_NAME="${PROJECT_NAME_KEY}-PROD${SITE_NAME}"
+        export ENVIRONMENT_NAME="PROD${SITE_NAME}"
         sed -i "s/${TOKEN_UPSTREAM_NAME}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/${TOKEN_NAMESPACE}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
         sed -i "s/###TOKEN_NODEAPP_${SITE_NAME}_IP###/${SERVICE_NAME}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
@@ -153,7 +153,7 @@ for node_name in ${node_names_list[@]}; do
 
     if [ "${SITE_NAME}" != "CI" ]
     then
-        full_node_name="${PROJECT_NAME_KEY}-prod${SITE_NAME}"
+        full_node_name="${PROJECT_NAME_KEY}-PROD${SITE_NAME}"
     else
         full_node_name="${PROJECT_NAME_KEY}-${SITE_NAME}"
     fi 
