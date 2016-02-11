@@ -6,6 +6,7 @@ def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME}";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
+def securityTestsGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-security-tests.git"
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -279,10 +280,10 @@ securityTestsJob.with{
     scm {
         git {
             remote {
-                url(nodeReferenceAppGitUrl)
+                url(securityTestsGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/develop")
+            branch("*/master")
         }
     }
     wrappers {
@@ -298,76 +299,78 @@ securityTestsJob.with{
     steps {
         conditionalSteps{
             condition{
-                shell('test ! -f "${JENKINS_HOME}/tools/.aws/bin/aws"')
+                shell('test ! -f ${JENKINS_HOME}/tools/.aws/bin/aws')
             }
             runner("Fail")
             steps{
                 shell('''set +x
-                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O "${JENKINS_HOME}/tools/awscli-bundle.zip"
+                        |wget https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet -O ${JENKINS_HOME}/tools/awscli-bundle.zip
                         |cd ${JENKINS_HOME}/tools && unzip -q awscli-bundle.zip
                         |${JENKINS_HOME}/tools/awscli-bundle/install -i ${JENKINS_HOME}/tools/.aws
                         |rm -rf ${JENKINS_HOME}/tools/awscli-bundle ${JENKINS_HOME}/tools/awscli-bundle.zip
                         |set -x
                         '''.stripMargin())
             }
+        }
+        conditionalSteps{
             condition{
-                shell('test ! -f "${JENKINS_HOME}/tools/jq"')
+                shell('test ! -f ${JENKINS_HOME}/tools/jq')
             }
             runner('Fail')
             steps{
-                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O "${JENKINS_HOME}/tools/jq"
-                        |chmod +x "${JENKINS_HOME}/tools/jq"
+                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O ${JENKINS_HOME}/tools/jq
+                        |chmod +x ${JENKINS_HOME}/tools/jq
                         '''.stripMargin())
             }
         }
+        shell('''echo "Setting values for container, project and app names"
+                |CONTAINER_NAME="owasp_zap-"${PROJECT_NAME_KEY}${BUILD_NUMBER}
+                |APP_NAME=${PROJECT_NAME_KEY}"-ci"
+                |APP_URL=http://john.smith:Password01@${APP_NAME}.${STACK_IP}.xip.io
+                |ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
+                |   ${JENKINS_HOME}/tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
+                |
+                |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
+                |echo APP_NAME=$APP_NAME >> app.properties
+                |echo APP_URL=$APP_URL >> app.properties
+                |echo ZAP_IP=$ZAP_IP >> app.properties
+                '''.stripMargin())
+        environmentVariables {
+            propertiesFile('app.properties')
+        }
         shell('''echo "Running automation tests"
                 |
-                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
-                |owasp_zap_container=owasp_zap_nodeapp-${ref}
-                |
-                |if [ "${JENKINS_HOME}"/tools/docker top "$owasp_zap_container" &> /dev/null ]
-                |then
-                |    ${JENKINS_HOME}/tools/docker stop $owasp_zap_container
-                |    ${JENKINS_HOME}/tools/docker rm $owasp_zap_container
-                |fi
-                |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
-                |nohup ${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ --name ${owasp_zap_container} -P docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
+                |nohup docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
+                |   /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
                 |
                 |echo "Running Selenium tests through maven."
                 |sleep 30s
                 |
                 |# Setting up variables for Maven
-                |environment_ip=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`NodeJSEnvCartridge-Ref`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="NodeAppCIPrivateIp")|.OutputValue')
-                |node_host_id=$(echo "${NODE_NAME}" | cut -d'-' -f1 | rev | cut -d'_' -f1 | rev)
-                |
-                |VAR_APPLICATION_URL=http://${environment_ip}:80/nodejsenvcartridge-ref-ci
-                |VAR_ZAP_IP=$(${JENKINS_HOME}/tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`ADOP-CORE`)].Outputs[*]' | ${JENKINS_HOME}/tools/jq -r '.[]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue')
-                |VAR_ZAP_PORT="9090"
-                |VAR_ZAP_PORT=$(${JENKINS_HOME}/tools/docker port ${owasp_zap_container} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
-                |
-                |echo "VAR_APPLICATION_URL=${VAR_APPLICATION_URL}" >> maven_variables.properties
-                |echo "VAR_ZAP_IP=${VAR_ZAP_IP}" >> maven_variables.properties
-                |echo "VAR_ZAP_PORT=${VAR_ZAP_PORT}" >> maven_variables.properties
+                |ZAP_PORT="9090"
+                |ZAP_PORT=$( docker port ${CONTAINER_NAME} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
+                |echo "ZAP_PORT=${ZAP_PORT}" >> app.properties
                 '''.stripMargin())
         environmentVariables {
-            propertiesFile('maven_variables.properties')
+            propertiesFile('app.properties')
         }
         maven {
             goals("clean")
-            goals('install -B -P selenium-tests -DapplicationURL=${VAR_APPLICATION_URL} -DzapIp=${VAR_ZAP_IP} -DzapPort=${VAR_ZAP_PORT}')
+            goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
             mavenInstallation("ADOP Maven")
         }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
-                |ref=$( echo ${JOB_NAME} | sed 's#[ /]#_#g' )
-                |owasp_zap_container=owasp_zap_nodeapp-${ref}
+                |docker stop ${CONTAINER_NAME}
+                |docker rm ${CONTAINER_NAME}
                 |
-                |${JENKINS_HOME}/tools/docker stop ${owasp_zap_container}
-                |${JENKINS_HOME}/tools/docker rm ${owasp_zap_container}
+                |docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
+                |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |
-                |${JENKINS_HOME}/tools/docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ docker.accenture.com/dcsc/owasp_zap_proxy /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
-                |
-                |cp ${WORKSPACE}/owasp_zap_proxy/test-results/test-${BUILD_NUMBER}-report.html .
+                |docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
+                |docker rm --force $(docker ps --all -q -f exited=0) || exit 0
                 '''.stripMargin())
     }
     publishers {
@@ -376,8 +379,8 @@ securityTestsJob.with{
     configure{myProject ->
         myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
             reportName("HTML Report")
-            reportDir("nodeapp-a/target/failsafe-reports")
-            reportFiles("index.html")
+            reportDir('${WORKSPACE}')
+            reportFiles('test-${BUILD_NUMBER}-report.html')
             alwaysLinkToLastBuild("false")
             keepAll("false")
             allowMissing("false")
@@ -389,7 +392,7 @@ securityTestsJob.with{
             trigger(projectFolderName + "/Performance_Tests") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
