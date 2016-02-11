@@ -105,7 +105,6 @@ docker exec proxy /usr/sbin/nginx -s reload
         environmentVariables {
             propertiesFile('endpoints.txt')
         }
-	systemGroovyCommand(readFileFromWorkspace('cartridge/jenkins/scripts/jenkins_global_envs.groovy'))
     }
     scm {
         git {
@@ -161,7 +160,7 @@ for node_name in ${node_names_list[@]}; do
     echo "Deleting Nginx configuation and removing Docker container for ${node_name}"
     nginx_sites_enabled_file="${PROJECT_NAME_KEY}-$(echo ${node_name} | tr '[:upper:]' '[:lower:]').conf"
     docker exec -i proxy bash -c "if test -f /etc/nginx/sites-enabled/${nginx_sites_enabled_file}; then rm /etc/nginx/sites-enabled/${nginx_sites_enabled_file}; fi"
-    
+
     container_id=$(docker ps --format "{{.ID}}: {{.Names}}" | grep ${full_node_name} | cut -f1 -d":")
 
     if [ ! -z "$container_id" ]; then
