@@ -423,13 +423,7 @@ performanceTestsJob.with {
         }
     }
     steps {
-        shell('''project_name=$(echo ${PROJECT_NAME} | tr '[:upper:]' '[:lower:]' | tr '//' '-')
-                |sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/${project_name}-ci\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
-                |echo "$STACK_IP"
-                '''.stripMargin())
-    }
-    steps {
-        shell('''echo "${JENKINS_URL}view/AOWP_pipeline/job/technicaltest-nodeapp/${BUILD_NUMBER}/gatling/report/recordedsimulation/source/"'''.stripMargin())
+        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/${project_name}-ci\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala'''.stripMargin())
     }
     steps{
         maven {
