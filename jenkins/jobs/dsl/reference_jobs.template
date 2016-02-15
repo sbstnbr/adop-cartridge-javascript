@@ -299,68 +299,26 @@ securityTestsJob.with{
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
-    steps {
-        conditionalSteps{
-            condition{
-                shell('test ! -d /tools')
-            }
-            runner("Fail")
-            steps{
-                shell('''set +x
-                        |mkdir /tools
-                        |set -x
-                        '''.stripMargin())
-            }
-        }
-        conditionalSteps{
-            condition{
-                shell('test ! -f /tools/.aws/bin/aws')
-            }
-            runner("Fail")
-            steps{
-                shell('''set +x
-                        |wget -P /tools/ https://s3.amazonaws.com/aws-cli/awscli-bundle.zip --quiet
-                        |yum -y -q install unzip
-                        |unzip -q /tools/awscli-bundle.zip -d /tools
-                        |/tools/awscli-bundle/install -i /tools/.aws
-                        |rm -rf /tools/awscli-bundle /tools/awscli-bundle.zip
-                        |set -x
-                        '''.stripMargin())
-            }
-        }
-        conditionalSteps{
-            condition{
-                shell('test ! -f /tools/jq')
-            }
-            runner('Fail')
-            steps{
-                shell('''wget -q https://s3-eu-west-1.amazonaws.com/adop-core/data-deployment/bin/jq-1.4 -O /tools/jq
-                        |chmod +x /tools/jq
-                        '''.stripMargin())
-            }
-        }
-        shell('''echo "Setting values for container, project and app names"
+    steps{
+        shell('''echo "Running automation tests"
+                |
+                |echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"${PROJECT_NAME_KEY}${BUILD_NUMBER}
                 |APP_NAME=${PROJECT_NAME_KEY}"-CI"
                 |APP_URL=http://john.smith:Password01@${APP_NAME}.${STACK_IP}.xip.io
-                |ZAP_IP=$( /tools/.aws/bin/aws cloudformation describe-stacks --query 'Stacks[?contains(StackName,`CORE`)].Outputs[*]' | \\
-                |   /tools/jq -r '.[0]|.[]| select(.OutputKey=="SonarJenkinsPrivateIP")|.OutputValue');
                 |
                 |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
                 |echo APP_NAME=$APP_NAME >> app.properties
                 |echo APP_URL=$APP_URL >> app.properties
                 |echo ZAP_IP=$ZAP_IP >> app.properties
-                '''.stripMargin())
-        environmentVariables {
-            propertiesFile('app.properties')
-        }
-        shell('''echo "Running automation tests"
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
                 |nohup docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |   /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
                 |
+                |ZAP_IP=$( docker inspect jenkins-slave | grep IPAddress | cut -d \\" -f 4 | grep -v -e '^$' )
+                |echo "ZAP_IP=${ZAP_IP}" >> app.properties
                 |echo "Running Selenium tests through maven."
                 |sleep 30s
                 |
