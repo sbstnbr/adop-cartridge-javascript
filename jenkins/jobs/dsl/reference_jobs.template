@@ -301,50 +301,45 @@ securityTestsJob.with{
     label("docker")
     steps{
         shell('''echo "Running automation tests"
-                |
                 |echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"${PROJECT_NAME_KEY}${BUILD_NUMBER}
                 |APP_NAME=${PROJECT_NAME_KEY}"-CI"
-                |APP_URL=http://john.smith:Password01@${APP_NAME}.${STACK_IP}.xip.io
-                |
+                |APP_IP=$( docker inspect ${APP_NAME} | grep IPAddress | cut -d \\" -f 4 | grep -v -e '^$' )
+                |APP_URL=http://${APP_IP}:8080
+                |ZAP_PORT="9090"
                 |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
-                |echo APP_NAME=$APP_NAME >> app.properties
                 |echo APP_URL=$APP_URL >> app.properties
                 |echo ZAP_IP=$ZAP_IP >> app.properties
+                |echo ZAP_PORT=$ZAP_PORT >> app.properties
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
-                |nohup docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
-                |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
-                |   /etc/init.d/zaproxy start test-${BUILD_NUMBER} &
-                |
-                |ZAP_IP=$( docker inspect jenkins-slave | grep IPAddress | cut -d \\" -f 4 | grep -v -e '^$' )
-                |echo "ZAP_IP=${ZAP_IP}" >> app.properties
-                |echo "Running Selenium tests through maven."
+                |mkdir -p ${WORKSPACE}/owasp_zap_proxy/test-results
+                |docker run -i --net=adopnetwork -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |    --name ${CONTAINER_NAME} -P -d -t docker.accenture.com/dcsc/owasp_zap_proxy \\
+                |    /etc/init.d/zaproxy start test-${BUILD_NUMBER}
                 |sleep 30s
+                |ZAP_IP=$( docker inspect ${CONTAINER_NAME} | grep IPAddress | cut -d \" -f 4 | grep -v -e '^$' )
+                |echo ZAP_IP=$ZAP_IP >> app.properties
                 |
-                |# Setting up variables for Maven
-                |ZAP_PORT="9090"
-                |ZAP_PORT=$( docker port ${CONTAINER_NAME} | grep "9090" | sed -rn 's#9090/tcp -> 0.0.0.0:([[:digit:]]+)$#\\1#p')
-                |echo "ZAP_PORT=${ZAP_PORT}" >> app.properties
+                |echo "Running Selenium tests through maven."
                 '''.stripMargin())
         environmentVariables {
             propertiesFile('app.properties')
         }
         maven {
-            goals("clean")
+            goals('clean')
             goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
             mavenInstallation("ADOP Maven")
         }
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
                 |docker stop ${CONTAINER_NAME}
                 |docker rm ${CONTAINER_NAME}
-                |
-                |docker run -i -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |docker run -i --net=adopnetwork -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
-                |
                 |docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |docker rm --force $(docker ps --all -q -f exited=0) || exit 0
+                |sleep 30s
+                |docker rm $(docker ps --all -q -f exited=0)
                 '''.stripMargin())
     }
     publishers {
