@@ -350,7 +350,7 @@ securityTestsJob.with{
                 |docker run -i --net=adopnetwork -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |    --name ${CONTAINER_NAME} -P -d -t docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |    /etc/init.d/zaproxy start test-${BUILD_NUMBER}
-                |sleep 30s
+                |sleep 50s
                 |ZAP_IP=$( docker inspect ${CONTAINER_NAME} | grep IPAddress | cut -d \\" -f 4 | grep -v -e '^$' )
                 |echo ZAP_IP=$ZAP_IP >> app.properties
                 |
