@@ -32,15 +32,15 @@ generateNodeReferenceAppJobs.with {
                 |ret=$?
                 |set -e
                 |if [ ${ret} != 0 ]; then
-                | echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
-                | ssh -p 29418 gerrit gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
-                | # Populate repository
-                |git clone ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY} .
-                |git remote add source "${GIT_REPOSITORY_URL}"
-                |git fetch source
-                |git push origin +refs/remotes/source/*:refs/heads/*
+                |    echo "Creating gerrit project : ${PROJECT_NAME}/${GIT_REPOSITORY} "
+                |    ssh -p 29418 jenkins@gerrit gerrit create-project ${PROJECT_NAME}/${GIT_REPOSITORY} --empty-commit
+                |    # Populate repository
+                |    git clone ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY} .
+                |    git remote add source "${GIT_REPOSITORY_URL}"
+                |    git fetch source
+                |    git push origin +refs/remotes/source/*:refs/heads/*
                 |else
-                | echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
+                |    echo "Repository ${PROJECT_NAME}/${GIT_REPOSITORY} exists! Creating jobs..."
                 |fi
                 |
                 |echo "GIT_REPOSITORY_NAME=$GIT_REPOSITORY" > env.properties
