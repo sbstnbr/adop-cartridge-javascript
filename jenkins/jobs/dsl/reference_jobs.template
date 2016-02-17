@@ -7,6 +7,7 @@ def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME}";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
 def securityTestsGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-security-tests.git"
+def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template_v5.git";
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -17,6 +18,7 @@ def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Nod
 def gruntFunctionalTestsJob = freeStyleJob(projectFolderName + "/Grunt_Functional_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
+def testAutomationJob = freeStyleJob(projectFolderName + "/Test_Automation")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -183,6 +185,15 @@ deployToCIEnvJob.with {
         maskPasswords()
         sshAgent("adop-jenkins-master")
     }
+    scm {
+        git {
+            remote {
+                url(environmentTemplateUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/master")
+        }
+    }
     steps {
         copyArtifacts(projectFolderName + "/Build_App") {
             includePatterns('docker-compose*.yml')
@@ -193,13 +204,28 @@ deployToCIEnvJob.with {
     }
     steps {
         shell('''set +x
+                |# Token constants
+                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+                |TOKEN_IP="###TOKEN_IP###"
+                |TOKEN_PORT="###TOKEN_PORT###"
+                |
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |docker stop ${SERVICE_NAME}
-                |docker rm -f ${SERVICE_NAME}
-                |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
+                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
+                |
+                |# Genrate nginx configuration
+                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+                |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
+                |
+                |# Copy the generated configuration file to nginx container
+                |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+                |
+                |# Reload Nginx configuration
+                |docker exec proxy /usr/sbin/nginx -s reload
                 |
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
@@ -410,11 +436,76 @@ performanceTestsJob.with {
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/Deploy_To_Prod_Node_1") {
+            trigger(projectFolderName + "/Test_Automation") {
                 condition("SUCCESS")
+                parameters {
+                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                }
             }
         }
     }
+}
+
+testAutomationJob.with{
+  description("Test automation")
+  parameters{
+    stringParam("B",'',"Parent build number")
+    stringParam("PARENT_BUILD","Reference_Application_Build","Parent build name")
+    stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
+  }
+  wrappers {
+    preBuildCleanup()
+    injectPasswords()
+    maskPasswords()
+    sshAgent("adop-jenkins-master")
+  }
+  environmentVariables {
+      env('WORKSPACE_NAME',workspaceFolderName)
+      env('PROJECT_NAME',projectFolderName)
+      env('PROJECT_NAME_KEY', projectNameKey)
+  }
+  label("docker")
+  steps {
+    shell('''set +x
+            |INSTANCE_IP=$(wget -q -O - http://instance-data/latest/meta-data/public-ipv4)
+            |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
+            |echo "SERVICE_NAME=${SERVICE_NAME}" > env.properties
+            |
+            |docker cp features ${SERVICE_NAME}:/data/nodeapp/ || exit 0
+            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:cucumber-report.json || exit 0
+            |docker cp ${SERVICE_NAME}:/data/nodeapp/cucumber-report.json cucumber-report.json
+            |set -x'''.stripMargin())
+    environmentVariables {
+      propertiesFile('env.properties')
+    }
+  }
+  configure{myProject ->
+    myProject / 'publishers' << 'net.masterthought.jenkins.CucumberReportPublisher'(plugin:'cucumber-reports@0.1.0'){
+      jsonReportDirectory("")
+      pluginUrlPath("./jenkins")
+      fileIncludePattern("")
+      fileExcludePattern("")
+      skippedFails("false")
+      pendingFails("false")
+      undefinedFails("false")
+      missingFails("false")
+      noFlashCharts("false")
+      ignoreFailedTests("false")
+      parallelTesting("false")
+    }
+  }
+  publishers {
+    downstreamParameterized {
+        trigger(projectFolderName + "/Deploy_To_Prod_Node_1") {
+            condition("SUCCESS")
+            parameters {
+                predefinedProp("B", '${BUILD_NUMBER}')
+                predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+            }
+        }
+    }
+  }
 }
 
 deployToProdNode1Job.with {
@@ -422,7 +513,8 @@ deployToProdNode1Job.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("ENVIRONMENT_NAME","PROD1","Name of the environment.")
+        stringParam("PROD_NODE1",'',"Parent environment name")
+        stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -445,15 +537,39 @@ deployToProdNode1Job.with {
             }
         }
     }
+    scm {
+        git {
+            remote {
+                url(environmentTemplateUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/master")
+        }
+    }
     steps {
         shell('''set +x
+                |# Token constants
+                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+                |TOKEN_IP="###TOKEN_IP###"
+                |TOKEN_PORT="###TOKEN_PORT###"
+                |
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |docker stop ${SERVICE_NAME}
-                |docker rm -f ${SERVICE_NAME}
-                |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
+                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
+                |
+                |# Genrate nginx configuration
+                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+                |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
+                |
+                |# Copy the generated configuration file to nginx container
+                |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+                |
+                |# Reload Nginx configuration
+                |docker exec proxy /usr/sbin/nginx -s reload
                 |
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
@@ -497,6 +613,15 @@ deployToProdNode2Job.with {
         maskPasswords()
         sshAgent("adop-jenkins-master")
     }
+    scm {
+        git {
+            remote {
+                url(environmentTemplateUrl)
+                credentials("adop-jenkins-master")
+            }
+            branch("*/master")
+        }
+    }
     steps {
         copyArtifacts(projectFolderName + "/Build_App") {
             includePatterns('docker-compose*.yml')
@@ -507,17 +632,50 @@ deployToProdNode2Job.with {
     }
     steps {
         shell('''set +x
+                |# Token constants
+                |TOKEN_UPSTREAM_NAME="###TOKEN_UPSTREAM_NAME###"
+                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+                |TOKEN_IP="###TOKEN_IP###"
+                |TOKEN_PORT="###TOKEN_PORT###"
+                |
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
-                |docker stop ${SERVICE_NAME}
-                |docker rm -f ${SERVICE_NAME}
-                |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |docker-compose -f docker-compose.deploy.yml up -d --force-recreate
+                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
+                |
+                |# Genrate NGINX configuration for prod 2
+                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+                |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+                |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
+                |
+                |# Generate NGINX configuration for main and public env.
+                |nginx_main_env_conf="${PROJECT_NAME_KEY}.conf"
+                |cp nginx/nodeapp.conf ${nginx_main_env_conf}
+                |
+                |nginx_public_env_conf="${PROJECT_NAME_KEY}-public.conf"
+                |cp nginx/nodeapp-public.conf ${nginx_public_env_conf}
+                |
+                |sed -i "s/${TOKEN_UPSTREAM_NAME}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+                |sed -i "s/${TOKEN_NAMESPACE}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+                |sed -i "s/###TOKEN_NODEAPP_1_IP###/${PROJECT_NAME_KEY}-${PROD_NODE1}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+                |sed -i "s/###TOKEN_NODEAPP_1_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+                |sed -i "s/###TOKEN_NODEAPP_2_IP###/${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+                |sed -i "s/###TOKEN_NODEAPP_2_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+                |
+                |# Copy the generated configuration files to nginx container
+                |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+                |docker cp ${nginx_main_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_main_env_conf}
+                |docker cp ${nginx_public_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_public_env_conf}
+                |
+                |# Reload Nginx configuration
+                |docker exec proxy /usr/sbin/nginx -s reload
                 |
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+                |echo "Project URL: http://${PROJECT_NAME_KEY}.${STACK_IP}.xip.io"
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
                 |
