@@ -22,6 +22,7 @@ generateNodeReferenceAppJobs.with {
         preBuildCleanup()
         injectPasswords()
         maskPasswords()
+        sshAgent("adop-jenkins-master")
     }
     steps {
         shell('''set +x
