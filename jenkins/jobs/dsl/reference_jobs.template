@@ -212,6 +212,7 @@ deployToCIEnvJob.with {
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
                 |
                 |# Genrate nginx configuration
@@ -344,7 +345,7 @@ securityTestsJob.with{
                 |    --name ${CONTAINER_NAME} -P -d -t docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |    /etc/init.d/zaproxy start test-${BUILD_NUMBER}
                 |sleep 30s
-                |ZAP_IP=$( docker inspect ${CONTAINER_NAME} | grep IPAddress | cut -d \" -f 4 | grep -v -e '^$' )
+                |ZAP_IP=$( docker inspect ${CONTAINER_NAME} | grep IPAddress | cut -d \\" -f 4 | grep -v -e '^$' )
                 |echo ZAP_IP=$ZAP_IP >> app.properties
                 |
                 |echo "Running Selenium tests through maven."
@@ -470,9 +471,9 @@ testAutomationJob.with{
     shell('''set +x
             |INSTANCE_IP=$(wget -q -O - http://instance-data/latest/meta-data/public-ipv4)
             |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
+            |export WEBSITE_URL="http://john.smith:Password01@${SERVICE_NAME}.${INSTANCE_IP}.xip.io"
             |echo "SERVICE_NAME=${SERVICE_NAME}" > env.properties
             |
-            |docker cp features ${SERVICE_NAME}:/data/nodeapp/ || exit 0
             |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:cucumber-report.json || exit 0
             |docker cp ${SERVICE_NAME}:/data/nodeapp/cucumber-report.json cucumber-report.json
             |set -x'''.stripMargin())
@@ -556,6 +557,7 @@ deployToProdNode1Job.with {
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
                 |
                 |# Genrate nginx configuration
@@ -641,6 +643,7 @@ deployToProdNode2Job.with {
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
                 |
                 |# Genrate NGINX configuration for prod 2
