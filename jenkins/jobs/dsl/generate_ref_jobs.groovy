@@ -1,6 +1,7 @@
 // Folders
 def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
+def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Jobs reference
 def generateNodeReferenceAppJobs = freeStyleJob(projectFolderName + "/Generate_Reference_App_Jobs")
