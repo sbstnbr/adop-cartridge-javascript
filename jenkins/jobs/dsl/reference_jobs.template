@@ -587,6 +587,7 @@ deployToProdNode1Job.with {
                 parameters {
                     predefinedProp("B", '${BUILD_NUMBER}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+                    predefinedProp("PROD1", '${ENVIRONMENT_NAME}')
                 }
             }
         }
