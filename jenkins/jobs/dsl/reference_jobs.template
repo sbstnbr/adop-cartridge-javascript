@@ -514,8 +514,7 @@ deployToProdNode1Job.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("PROD_NODE1",'',"Parent environment name")
-        stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
+        stringParam("ENVIRONMENT_NAME","PROD1","Name of the environment.")
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
@@ -600,6 +599,7 @@ deployToProdNode2Job.with {
     parameters {
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("PROD_NODE1",'',"Parent environment name")
         stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
     }
     environmentVariables {
