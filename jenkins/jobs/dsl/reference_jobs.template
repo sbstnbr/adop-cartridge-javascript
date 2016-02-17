@@ -429,7 +429,7 @@ performanceTestsJob.with {
         }
     }
     steps {
-        shell('''sed -i "s/http:\\/\\/nodeapp\\..*\\.xip.io/http:\\/\\/${PROJECT_NAME_KEY}-CI\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala'''.stripMargin())
+        shell('''sed -i "s/validURL/http:\\/\\/${PROJECT_NAME_KEY}-CI\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala'''.stripMargin())
     }
     steps{
         maven {
