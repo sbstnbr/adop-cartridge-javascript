@@ -333,9 +333,7 @@ securityTestsJob.with{
     }
     label("docker")
     steps{
-        shell('''#!/bin/bash -ex
-                |
-                |echo "Running automation tests"
+        shell('''echo "Running automation tests"
                 |echo "Setting values for container, project and app names"
                 |CONTAINER_NAME="owasp_zap-"${PROJECT_NAME_KEY}${BUILD_NUMBER}
                 |APP_NAME=${PROJECT_NAME_KEY}"-CI"
@@ -349,12 +347,13 @@ securityTestsJob.with{
                 |
                 |echo "Starting OWASP ZAP Intercepting Proxy"
                 |mkdir -p ${WORKSPACE}/owasp_zap_proxy/test-results
-                |docker run -it --net=adopnetwork -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |docker run -it --net=$DOCKER_NETWORK_NAME -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |    --name ${CONTAINER_NAME} -P -d docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |    /etc/init.d/zaproxy start test-${BUILD_NUMBER}
+                sleep 10s
                 |while -z $(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} )
                 |do
-                |    sleep 5
+                |    sleep 5s
                 |done
                 |ZAP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} )
                 |echo ZAP_IP=$ZAP_IP >> app.properties
@@ -376,7 +375,7 @@ securityTestsJob.with{
                 |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |sleep 30s
+                |sleep 10s
                 |docker rm $(docker ps --all -q -f exited=0)
                 '''.stripMargin())
     }
