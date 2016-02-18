@@ -16,7 +16,7 @@ def codeAnalysisJob = freeStyleJob(projectFolderName + "/Code_Analysis")
 def deployToCIEnvJob = freeStyleJob(projectFolderName + "/Deploy_To_CI_ENV")
 def deployToProdNode1Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_1")
 def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_2")
-def gruntFunctionalTestsJob = freeStyleJob(projectFolderName + "/Grunt_Functional_Tests")
+def unitTestsJob = freeStyleJob(projectFolderName + "/Unit_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
 def testAutomationJob = freeStyleJob(projectFolderName + "/Test_Automation")
@@ -242,7 +242,7 @@ deployToCIEnvJob.with {
     }
     publishers {
         downstreamParameterized {
-            trigger(projectFolderName + "/Grunt_Functional_Tests") {
+            trigger(projectFolderName + "/Unit_Tests") {
                 condition("SUCCESS")
                 parameters {
                     predefinedProp("B", '${B}')
@@ -253,7 +253,7 @@ deployToCIEnvJob.with {
     }
 }
 
-gruntFunctionalTestsJob.with {
+unitTestsJob.with {
     description("Run functional tests for nodejs reference app")
     parameters{
         stringParam("B",'',"Parent build number")
