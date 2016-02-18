@@ -13,7 +13,6 @@ def destroyEnvironmentJob = freeStyleJob(projectFolderName + "/Destroy_Environme
 destroyEnvironmentJob.with{
     label("docker")
     parameters{
-        stringParam("FULL_ENVIRONMENT_NAME","","The name of the environment to be destroyed along with its namespace, e.g. Workspace-Project-Name.")
         stringParam("NODE_CI","CI","Name of CI node")
         stringParam("NODE_PROD1","PROD1","Name of PROD1 node")
         stringParam("NODE_PROD2","PROD2","Name of PROD2 node")
