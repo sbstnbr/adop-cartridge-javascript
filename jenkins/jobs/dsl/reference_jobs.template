@@ -354,7 +354,7 @@ securityTestsJob.with{
                 |do
                 |    sleep 5s
                 |done
-                |sleep 20s
+                |sleep 30s
                 |ZAP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} )
                 |echo ZAP_IP=$ZAP_IP >> app.properties
                 |
