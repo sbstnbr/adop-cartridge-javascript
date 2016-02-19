@@ -14,8 +14,8 @@ def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environ
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
 def codeAnalysisJob = freeStyleJob(projectFolderName + "/Code_Analysis")
 def deployToCIEnvJob = freeStyleJob(projectFolderName + "/Deploy_To_CI_ENV")
-def deployToProdNode1Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_1")
-def deployToProdNode2Job = freeStyleJob(projectFolderName + "/Deploy_To_Prod_Node_2")
+def deployToProdNodeAJob = freeStyleJob(projectFolderName + "/Deploy_To_Prod_A")
+def deployToProdNodeBJob = freeStyleJob(projectFolderName + "/Deploy_To_Prod_B")
 def unitTestsJob = freeStyleJob(projectFolderName + "/Unit_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
@@ -350,11 +350,11 @@ securityTestsJob.with{
                 |docker run -it --net=$DOCKER_NETWORK_NAME -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |    --name ${CONTAINER_NAME} -P -d docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |    /etc/init.d/zaproxy start test-${BUILD_NUMBER}
-                sleep 10s
-                |while -z $(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} )
+                |until [ $(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} ) ]
                 |do
                 |    sleep 5s
                 |done
+                |sleep 20s
                 |ZAP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} )
                 |echo ZAP_IP=$ZAP_IP >> app.properties
                 |
@@ -510,7 +510,7 @@ testAutomationJob.with{
   }
   publishers {
     downstreamParameterized {
-        trigger(projectFolderName + "/Deploy_To_Prod_Node_1") {
+        trigger(projectFolderName + "/Deploy_To_Prod_A") {
             condition("SUCCESS")
             parameters {
                 predefinedProp("B", '${BUILD_NUMBER}')
@@ -521,7 +521,7 @@ testAutomationJob.with{
   }
 }
 
-deployToProdNode1Job.with {
+deployToProdNodeAJob.with {
     description("Deploy AOWP reference app to PROD 1")
     parameters{
         stringParam("B",'',"Parent build number")
@@ -594,7 +594,7 @@ deployToProdNode1Job.with {
                 |set -x'''.stripMargin())
     }
     publishers {
-        buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_Node_2") {
+        buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_B") {
             parameters {
                 predefinedProp("B", '${BUILD_NUMBER}')
                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
@@ -604,7 +604,7 @@ deployToProdNode1Job.with {
     }
 }
 
-deployToProdNode2Job.with {
+deployToProdNodeBJob.with {
     description("Deploy AOWP reference app to PROD 2")
     parameters {
         stringParam("B",'',"Parent build number")
