@@ -485,7 +485,7 @@ testAutomationJob.with{
             |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
             |export WEBSITE_URL="http://john.smith:Password01@${SERVICE_NAME}.${INSTANCE_IP}.xip.io"
             |echo "SERVICE_NAME=${SERVICE_NAME}" > env.properties
-            |
+            |docker exec -t ${SERVICE_NAME} sed -i 's/###TOKEN_FULL_SITE_ADDRESS###/${WEBSITE_URL}/g' /data/nodeapp/features/step_definitions/step_definitions.js
             |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:cucumber-report.json || exit 0
             |docker cp ${SERVICE_NAME}:/data/nodeapp/cucumber-report.json cucumber-report.json
             |set -x'''.stripMargin())
