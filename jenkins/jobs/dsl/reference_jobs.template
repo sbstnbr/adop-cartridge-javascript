@@ -57,6 +57,39 @@ buildAppJob.with {
     }
     steps {
         shell('''set +x
+                |git_data=$(git --git-dir "${WORKSPACE}/.git" log -1 --pretty="format:%an<br/>%s%b")
+                |echo "GIT_LOG_DATA=${git_data}" > git_log_data.properties
+                '''.stripMargin())
+        environmentVariables {
+            propertiesFile('git_log_data.properties')
+        }
+    }
+    steps {
+        systemGroovyCommand('''
+                            |import hudson.model.*;
+                            |import hudson.util.*;
+                            |
+                            |// Get current build number
+                            |def currentBuildNum = build.getEnvironment(listener).get('BUILD_NUMBER')
+                            |println "Build Number: " + currentBuildNum
+                            |
+                            |// Get Git Data
+                            |def gitData = build.getEnvironment(listener).get('GIT_LOG_DATA')
+                            |println "Git Data: " + gitData;
+                            |
+                            |def currentBuild = Thread.currentThread().executable;
+                            |def oldParams = currentBuild.getAction(ParametersAction.class)
+                            |
+                            |// Update the param
+                            |def params = [ new StringParameterValue("T",gitData), new StringParameterValue("B",currentBuildNum) ]
+                            |
+                            |// Remove old params - Plugins inject variables!
+                            |currentBuild.actions.remove(oldParams)
+                            |currentBuild.addAction(new ParametersAction(params));
+                            '''.stripMargin())
+    }
+    steps {
+        shell('''set +x
                 |
                 |docker login -u devops.training -p ztNsaJPyrSyrPdtn -e devops.training@accenture.com docker.accenture.com
                 |
@@ -118,6 +151,7 @@ buildAppJob.with {
         }
     }
 }
+
 
 codeAnalysisJob.with {
     description("Code quality analysis for nodejs reference application using SonarQube.")
