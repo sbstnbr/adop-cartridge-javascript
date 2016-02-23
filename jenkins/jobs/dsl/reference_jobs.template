@@ -605,7 +605,7 @@ destroyCIEnvJob.with {
                 |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
                 |
                 |# Remove the generated configuration file from nginx container
-                |docker exec -it proxy bash -c "rm -rf /etc/nginx/sites-enabled/${nginx_sites_enabled_file}"
+                |docker exec proxy bash -c "rm -rf /etc/nginx/sites-enabled/${nginx_sites_enabled_file}"
                 |
                 |# Reload Nginx configuration
                 |docker exec proxy /usr/sbin/nginx -s reload
