@@ -20,6 +20,7 @@ def unitTestsJob = freeStyleJob(projectFolderName + "/Unit_Tests")
 def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
 def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
 def testAutomationJob = freeStyleJob(projectFolderName + "/Test_Automation")
+def destroyCIEnvJob = freeStyleJob(projectFolderName + "/Destroy_CI_ENV")
 
 // Views
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
@@ -551,8 +552,63 @@ testAutomationJob.with{
                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
             }
         }
+        trigger(projectFolderName + "/Destroy_CI_ENV") {
+            condition("SUCCESS")
+            parameters {
+                predefinedProp("B", '${BUILD_NUMBER}')
+                predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+            }
+        }
     }
   }
+}
+
+destroyCIEnvJob.with {
+    description("Destroy AOWP CI ENV.")
+    parameters{
+        stringParam("B",'',"Parent build number")
+        stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
+    }
+    environmentVariables {
+        env('WORKSPACE_NAME', workspaceFolderName)
+        env('PROJECT_NAME', projectFolderName)
+        env('PROJECT_NAME_KEY', projectNameKey)
+        env('DOCKER_NETWORK_NAME', dockerNetworkName)
+    }
+    label("docker")
+    wrappers {
+        preBuildCleanup()
+        injectPasswords()
+        maskPasswords()
+        sshAgent("adop-jenkins-master")
+    }
+    steps {
+        copyArtifacts(projectFolderName + "/Build_App") {
+            includePatterns('docker-compose*.yml')
+            buildSelector {
+                buildNumber('${B}')
+            }
+        }
+    }
+    steps {
+        shell('''set +x
+                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+                |
+                |echo "Destroying ${ENVIRONMENT_NAME} environment"
+                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
+                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml stop
+                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml rm
+                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+                |
+                |# Remove the generated configuration file from nginx container
+                |docker exec -it proxy bash -c "rm -rf /etc/nginx/sites-enabled/${nginx_sites_enabled_file}"
+                |
+                |# Reload Nginx configuration
+                |docker exec proxy /usr/sbin/nginx -s reload
+                |
+                |set -x'''.stripMargin())
+    }
 }
 
 deployToProdNodeAJob.with {
