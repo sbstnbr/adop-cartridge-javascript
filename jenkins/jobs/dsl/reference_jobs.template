@@ -593,6 +593,9 @@ destroyCIEnvJob.with {
     }
     steps {
         shell('''set +x
+                |# Token constants
+                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+                |
                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
                 |
                 |echo "Destroying ${ENVIRONMENT_NAME} environment"
