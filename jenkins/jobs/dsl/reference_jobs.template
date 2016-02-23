@@ -601,7 +601,7 @@ destroyCIEnvJob.with {
                 |echo "Destroying ${ENVIRONMENT_NAME} environment"
                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml stop
-                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml rm
+                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml rm -v --force
                 |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
                 |
                 |# Remove the generated configuration file from nginx container
