@@ -523,14 +523,10 @@ testAutomationJob.with{
     shell('''set +x
             |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
             |export CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${SERVICE_NAME})
-            |echo "SERVICE_NAME=${SERVICE_NAME}" > env.properties
             |docker exec -t ${SERVICE_NAME} sed -i "s/###TOKEN_FULL_SITE_ADDRESS###/http:\\/\\/${CONTAINER_IP}:8080/g" ./features/step_definitions/step_definitions.js
-            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json || exit 0
+            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json
             |docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
             |set -x'''.stripMargin())
-    environmentVariables {
-      propertiesFile('env.properties')
-    }
   }
   configure{myProject ->
     myProject / 'publishers' << 'net.masterthought.jenkins.CucumberReportPublisher'(plugin:'cucumber-reports@0.1.0'){
