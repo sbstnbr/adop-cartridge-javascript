@@ -26,7 +26,7 @@ def destroyCIEnvJob = freeStyleJob(projectFolderName + "/Destroy_CI_ENV")
 def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
 
 pipelineView.with {
-    title('ADOP Nodeapp Pipeline')
+    title('ADOP AOWP Pipeline')
     displayedBuilds(5)
     selectedJob(projectFolderName + "/Build_App")
     showPipelineParameters()
@@ -53,7 +53,7 @@ buildAppJob.with {
                 url(nodeReferenceAppGitUrl)
                 credentials("adop-jenkins-master")
             }
-            branch("*/master")
+            branch("*/${GIT_REPOSITORY_BRANCH}")
         }
     }
     steps {
@@ -184,6 +184,7 @@ codeAnalysisJob.with {
             |sonar.language=js
             |sonar.sources=app
             |sonar.scm.enabled=false
+            |sonar.qualitygate=AdopQG
             '''.stripMargin())
             javaOpts()
             jdk('(Inherit From Job)')
@@ -446,6 +447,7 @@ performanceTestsJob.with {
     parameters{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
+        stringParam("MAX_RESPONSE_TIME","1000","Maximum response time for performance tests (in milisec)")
     }
     wrappers {
         preBuildCleanup()
@@ -468,7 +470,10 @@ performanceTestsJob.with {
         }
     }
     steps {
-        shell('''sed -i "s/validURL/http:\\/\\/${PROJECT_NAME_KEY}-CI\\.${STACK_IP}\\.xip.io/g" \${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala'''.stripMargin())
+        shell('''CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${PROJECT_NAME_KEY}-CI )
+                |sed -i "s/###TOKEN_VALID_URL###/http:\\/\\/${CONTAINER_IP}:8080/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+                |sed -i "s/###TOKEN_RESPONSE_TIME###/${MAX_RESPONSE_TIME}/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+                '''.stripMargin())
     }
     steps{
         maven {
@@ -516,13 +521,12 @@ testAutomationJob.with{
   label("docker")
   steps {
     shell('''set +x
-            |INSTANCE_IP=$(wget -q -O - http://instance-data/latest/meta-data/public-ipv4)
             |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
-            |export WEBSITE_URL="http://john.smith:Password01@${SERVICE_NAME}.${INSTANCE_IP}.xip.io"
+            |export CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${SERVICE_NAME})
             |echo "SERVICE_NAME=${SERVICE_NAME}" > env.properties
-            |docker exec -t ${SERVICE_NAME} sed -i 's/###TOKEN_FULL_SITE_ADDRESS###/${WEBSITE_URL}/g' /data/nodeapp/features/step_definitions/step_definitions.js
-            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:cucumber-report.json || exit 0
-            |docker cp ${SERVICE_NAME}:/data/nodeapp/cucumber-report.json cucumber-report.json
+            |docker exec -t ${SERVICE_NAME} sed -i "s/###TOKEN_FULL_SITE_ADDRESS###/http:\\/\\/${CONTAINER_IP}:8080/g" ./features/step_definitions/step_definitions.js
+            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json || exit 0
+            |docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
             |set -x'''.stripMargin())
     environmentVariables {
       propertiesFile('env.properties')
