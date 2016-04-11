@@ -524,7 +524,7 @@ testAutomationJob.with{
             |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
             |export CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${SERVICE_NAME})
             |docker exec -t ${SERVICE_NAME} sed -i "s/###TOKEN_FULL_SITE_ADDRESS###/http:\\/\\/${CONTAINER_IP}:8080/g" ./features/step_definitions/step_definitions.js
-            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json
+            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json || docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
             |docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
             |set -x'''.stripMargin())
   }
