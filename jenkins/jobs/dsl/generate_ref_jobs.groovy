@@ -10,6 +10,16 @@ generateNodeReferenceAppJobs.with {
     parameters {
         stringParam("GIT_REPOSITORY_URL", "ssh://git@uat.alm.accenture.com/ado7/aowp-reference-application.git", "Git Repository URL to build the project from.")
         stringParam("GIT_REPOSITORY_BRANCH", "master", "Git Repository URL to build the project from.")
+        stringParam("DOCKER_REGISTRY_USERNAME", "devops.training", "Docker registry username. If no username is provided, Jenkins jobs will not use authentification when conencting to registry")
+        stringParam("DOCKER_REGISTRY_URL", "docker.accenture.com", "Docker registry URL where the built images will be stored")
+        stringParam("DOCKER_REGISTRY_EMAIL", "devops.training@accenture.com", "Docker registry e-mail address")
+        configure { project ->
+            project / 'properties' / 'hudson.model.ParametersDefinitionProperty'/ 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition' {
+                name("DOCKER_REGISTRY_PASSWORD")
+                description("Docker registry password")
+                defaultValue('ztNsaJPyrSyrPdtn')
+            }
+        }
     }
     environmentVariables {
         env('WORKSPACE_NAME', workspaceFolderName)
