@@ -717,8 +717,7 @@ deployToProdNodeBJob.with {
     description("Deploy AOWP reference app to PROD 2")
     parameters {
         stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("PROD_NODE1",'',"Parent environment name")
+        stringParam("PROD_NODE1",'PROD1',"Parent environment name")
         stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
     }
     environmentVariables {
