@@ -9,10 +9,11 @@ def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aow
 def securityTestsGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-security-tests.git"
 def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template_v5.git";
 
-def dockerUser = "${DOCKER_REGISTRY_USERNAME}"
-def dockerPass = "${DOCKER_REGISTRY_PASSWORD}"
-def dockerMail = "${DOCKER_REGISTRY_EMAIL}" 
-def dockerUrl = "${DOCKER_REGISTRY_URL}"
+def dockerRegistryUser = "${DOCKER_REGISTRY_USERNAME}"
+def dockerRegistryPass = "${DOCKER_REGISTRY_PASSWORD}"
+def dockerRegistryEmail = "${DOCKER_REGISTRY_EMAIL}" 
+def dockerRegistryUrl = "${DOCKER_REGISTRY_URL}"
+def dockerRegistryRepo = "${DOCKER_REGISTRY_REPO}"
 
 // Jobs
 def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
@@ -45,9 +46,10 @@ buildAppJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_USERNAME', dockerUser)
-        env('DOCKER_REGISTRY_EMAIL', dockerMail)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_USERNAME', dockerRegistryUser)
+        env('DOCKER_REGISTRY_EMAIL', dockerRegistryEmail)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
     }
     label("docker")
     wrappers {
@@ -118,7 +120,7 @@ buildAppJob.with {
                 |fi
                 |
                 |COUNT=1
-                |while ! docker build -t ${DOCKER_REGISTRY_URL}/aowp/${PROJECT_NAME_KEY}:${BUILD_NUMBER} .
+                |while ! docker build -t ${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_REPO}/${PROJECT_NAME_KEY}:${BUILD_NUMBER} .
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker build failed even after ${COUNT}. Please investigate."
@@ -129,7 +131,7 @@ buildAppJob.with {
                 |done
                 |
                 |COUNT=1
-                |while ! docker push ${DOCKER_REGISTRY_URL}/aowp/${PROJECT_NAME_KEY}:${BUILD_NUMBER}
+                |while ! docker push ${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_REPO}/${PROJECT_NAME_KEY}:${BUILD_NUMBER}
                 |do
                 |  if [ ${COUNT} -gt 10 ]; then
                 |      echo "Docker push failed even after ${COUNT}. Please investigate."
@@ -226,7 +228,8 @@ deployToCIEnvJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -311,7 +314,8 @@ unitTestsJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -375,7 +379,8 @@ securityTestsJob.with{
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -583,7 +588,8 @@ destroyCIEnvJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
     }
     label("docker")
     wrappers {
@@ -634,7 +640,8 @@ deployToProdNodeAJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -718,7 +725,8 @@ deployToProdNodeBJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerUrl)
+        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")

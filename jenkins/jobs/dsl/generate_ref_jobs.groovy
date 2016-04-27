@@ -13,6 +13,7 @@ generateNodeReferenceAppJobs.with {
         stringParam("DOCKER_REGISTRY_USERNAME", "devops.training", "Docker registry username. If no username is provided, Jenkins jobs will not use authentification when conencting to registry")
         stringParam("DOCKER_REGISTRY_URL", "docker.accenture.com", "Docker registry URL where the built images will be stored")
         stringParam("DOCKER_REGISTRY_EMAIL", "devops.training@accenture.com", "Docker registry e-mail address")
+        stringParam("DOCKER_REGISTRY_REPO", "aowp", "Docker registry repository, where you wish to push your images")
         configure { project ->
             project / 'properties' / 'hudson.model.ParametersDefinitionProperty'/ 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition' {
                 name("DOCKER_REGISTRY_PASSWORD")
