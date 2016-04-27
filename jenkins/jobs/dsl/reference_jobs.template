@@ -2,7 +2,6 @@
 def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
 def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
-def dockerNetworkName = "adopnetwork"
 
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME}";
@@ -41,7 +40,6 @@ buildAppJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
     }
     label("docker")
     wrappers {
@@ -164,7 +162,6 @@ codeAnalysisJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
     }
     wrappers {
         preBuildCleanup()
@@ -215,7 +212,6 @@ deployToCIEnvJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -300,7 +296,6 @@ unitTestsJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -364,7 +359,6 @@ securityTestsJob.with{
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -407,7 +401,7 @@ securityTestsJob.with{
         shell('''echo "Stopping OWASP ZAP Proxy and generating report."
                 |docker stop ${CONTAINER_NAME}
                 |docker rm ${CONTAINER_NAME}
-                |docker run -i --net=adopnetwork -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
+                |docker run -i --net=$DOCKER_NETWORK_NAME -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
                 |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
                 |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
                 |docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
@@ -456,7 +450,6 @@ performanceTestsJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -516,7 +509,6 @@ testAutomationJob.with{
       env('WORKSPACE_NAME',workspaceFolderName)
       env('PROJECT_NAME',projectFolderName)
       env('PROJECT_NAME_KEY', projectNameKey)
-      env('DOCKER_NETWORK_NAME', dockerNetworkName)
   }
   label("docker")
   steps {
@@ -574,7 +566,6 @@ destroyCIEnvJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
     }
     label("docker")
     wrappers {
@@ -625,7 +616,6 @@ deployToProdNodeAJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
@@ -709,7 +699,6 @@ deployToProdNodeBJob.with {
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_NETWORK_NAME', dockerNetworkName)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
