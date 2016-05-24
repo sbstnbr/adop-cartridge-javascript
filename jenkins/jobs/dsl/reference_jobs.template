@@ -11,7 +11,7 @@ def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environ
 
 def dockerRegistryUser = "${DOCKER_REGISTRY_USERNAME}"
 def dockerRegistryPass = "${DOCKER_REGISTRY_PASSWORD}"
-def dockerRegistryEmail = "${DOCKER_REGISTRY_EMAIL}" 
+def dockerRegistryEmail = "${DOCKER_REGISTRY_EMAIL}"
 def dockerRegistryUrl = "${DOCKER_REGISTRY_URL}"
 def dockerRegistryRepo = "${DOCKER_REGISTRY_REPO}"
 
@@ -506,7 +506,7 @@ performanceTestsJob.with {
             trigger(projectFolderName + "/Test_Automation") {
                 condition("SUCCESS")
                 parameters {
-                    predefinedProp("B", '${BUILD_NUMBER}')
+                    predefinedProp("B", '${B}')
                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 }
             }
@@ -562,14 +562,14 @@ testAutomationJob.with{
         trigger(projectFolderName + "/Deploy_To_Prod_A") {
             condition("SUCCESS")
             parameters {
-                predefinedProp("B", '${BUILD_NUMBER}')
+                predefinedProp("B", '${B}')
                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
             }
         }
         trigger(projectFolderName + "/Destroy_CI_ENV") {
             condition("SUCCESS")
             parameters {
-                predefinedProp("B", '${BUILD_NUMBER}')
+                predefinedProp("B", '${B}')
                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
             }
         }
@@ -705,7 +705,7 @@ deployToProdNodeAJob.with {
     publishers {
         buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_B") {
             parameters {
-                predefinedProp("B", '${BUILD_NUMBER}')
+                predefinedProp("B", '${B}')
                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
                 predefinedProp("PROD_NODE1", '${ENVIRONMENT_NAME}')
             }
