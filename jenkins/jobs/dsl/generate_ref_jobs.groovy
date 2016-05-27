@@ -28,7 +28,6 @@ generateNodeReferenceAppJobs.with {
         env('PROJECT_NAME_KEY', projectNameKey)
         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
-    label("docker")
     wrappers {
         preBuildCleanup()
         injectPasswords()
