@@ -1,4 +1,4 @@
-https://git@uat.alm.accenture.com/bitbucket/scm/ado7/aowp-reference-application.git
-https://git@uat.alm.accenture.com/bitbucket/scm/ado7/aowp-performance-tests.git
-https://git@uat.alm.accenture.com/bitbucket/scm/ado7/aowp-security-tests.git
-https://git@uat.alm.accenture.com/bitbucket/scm/ado7/environment_template_v5.git
+ssh://git@newsource.accenture.com/a2527/aowp-reference-application.git
+ssh://git@newsource.accenture.com/a2527/aowp-performance-tests.git
+ssh://git@newsource.accenture.com/a2527/aowp-security-tests.git
+ssh://git@newsource.accenture.com/a2527/environment_template_v5.git
