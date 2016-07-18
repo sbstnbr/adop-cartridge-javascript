@@ -6,7 +6,6 @@ def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME}";
 def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
-def securityTestsGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-security-tests.git"
 def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template_v5.git";
 
 def dockerRegistryUser = "${DOCKER_REGISTRY_USERNAME}"
@@ -363,15 +362,6 @@ securityTestsJob.with{
         stringParam("B",'',"Parent build number")
         stringParam("PARENT_BUILD",'',"Parent build name")
     }
-    scm {
-        git {
-            remote {
-                url(securityTestsGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
     wrappers {
         preBuildCleanup()
     }
@@ -379,73 +369,31 @@ securityTestsJob.with{
         env('WORKSPACE_NAME', workspaceFolderName)
         env('PROJECT_NAME', projectFolderName)
         env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
-        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
     }
     label("docker")
     steps{
-        shell('''echo "Running automation tests"
-                |echo "Setting values for container, project and app names"
-                |CONTAINER_NAME="owasp_zap-"${PROJECT_NAME_KEY}${BUILD_NUMBER}
-                |APP_NAME=${PROJECT_NAME_KEY}"-CI"
-                |APP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${APP_NAME} )
+        shell('''echo "Setting values for container, project and app names"
+                |APP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${PROJECT_NAME_KEY}"-CI" )
                 |APP_URL=http://${APP_IP}:8080
-                |ZAP_PORT="9090"
-                |echo CONTAINER_NAME=$CONTAINER_NAME >> app.properties
-                |echo APP_URL=$APP_URL >> app.properties
-                |echo ZAP_IP=$ZAP_IP >> app.properties
-                |echo ZAP_PORT=$ZAP_PORT >> app.properties
+                |HOST_WORKSPACE=$(echo ${WORKSPACE} | sed 's#/workspace#/var/lib/docker/volumes/jenkins_slave_home/_data#')
                 |
-                |echo "Starting OWASP ZAP Intercepting Proxy"
-                |mkdir -p ${WORKSPACE}/owasp_zap_proxy/test-results
-                |docker run -it --net=$DOCKER_NETWORK_NAME -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
-                |    --name ${CONTAINER_NAME} -P -d docker.accenture.com/dcsc/owasp_zap_proxy \\
-                |    /etc/init.d/zaproxy start test-${BUILD_NUMBER}
-                |until [ $(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} ) ]
-                |do
-                |    sleep 5s
-                |done
-                |sleep 30s
-                |ZAP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${CONTAINER_NAME} )
-                |echo ZAP_IP=$ZAP_IP >> app.properties
+                |echo "Starting OWASP ZAP Baseline Scan"
+                |
+                |docker run --rm -t --net=${DOCKER_NETWORK_NAME} \\
+                |-v ${HOST_WORKSPACE}:/zap/wrk/:rw \\
+                |iniweb/owasp-zap2docker-stable:2.5.0 zap-baseline.py -s -r zap-test-report.html -t ${APP_URL} || exit 0
                 |
                 |echo "Running Selenium tests through maven."
                 '''.stripMargin())
-        environmentVariables {
-            propertiesFile('app.properties')
-        }
-        maven {
-            goals('clean')
-            goals('install -B -P selenium-tests -DapplicationURL=${APP_URL} -DzapIp=${ZAP_IP} -DzapPort=${ZAP_PORT}')
-            mavenInstallation("ADOP Maven")
-        }
-        shell('''echo "Stopping OWASP ZAP Proxy and generating report."
-                |docker stop ${CONTAINER_NAME}
-                |docker rm ${CONTAINER_NAME}
-                |docker run -i --net=$DOCKER_NETWORK_NAME -v ${WORKSPACE}/owasp_zap_proxy/test-results/:/opt/zaproxy/test-results/ \\
-                |   --name ${CONTAINER_NAME} -P docker.accenture.com/dcsc/owasp_zap_proxy \\
-                |   /etc/init.d/zaproxy stop test-${BUILD_NUMBER}
-                |docker cp ${CONTAINER_NAME}:/opt/zaproxy/test-results/test-${BUILD_NUMBER}-report.html .
-                |sleep 10s
-                |docker rm $(docker ps --all -q -f exited=0)
-                '''.stripMargin())
     }
     publishers {
+        publishHtml {
+            report('$WORKSPACE') {
+                reportName('ZAP security test report')
+                reportFiles('zap-test-report.html')
+            }
+        }
         archiveArtifacts("*.html")
-    }
-    configure{myProject ->
-        myProject / 'publishers' / 'htmlpublisher.HtmlPublisher'(plugin:'htmlpublisher@1.4') / 'reportTargets' / 'htmlpublisher.HtmlPublisherTarget' {
-            reportName("HTML Report")
-            reportDir('${WORKSPACE}')
-            reportFiles('test-${BUILD_NUMBER}-report.html')
-            alwaysLinkToLastBuild("false")
-            keepAll("false")
-            allowMissing("false")
-            wrapperName("htmlpublisher-wrapper.html")
-        }
-    }
-    publishers {
         downstreamParameterized {
             trigger(projectFolderName + "/Performance_Tests") {
                 condition("SUCCESS")
