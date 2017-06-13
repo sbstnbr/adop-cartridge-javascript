@@ -5,8 +5,8 @@ def projectNameKey = projectFolderName.toLowerCase().replace("/", "-");
 
 // Variables
 def nodeReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/${GIT_REPOSITORY_NAME}";
-def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/aowp-performance-tests.git";
-def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/environment_template_v5.git";
+def gatelingReferenceAppGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/askme-performance-tests.git";
+def environmentTemplateUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/askme-environment_template_v5.git";
 
 def dockerRegistryUser = "${DOCKER_REGISTRY_USERNAME}"
 def dockerRegistryPass = "${DOCKER_REGISTRY_PASSWORD}"
@@ -15,28 +15,29 @@ def dockerRegistryUrl = "${DOCKER_REGISTRY_URL}"
 def dockerRegistryRepo = "${DOCKER_REGISTRY_REPO}"
 
 // Jobs
-def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
-def codeAnalysisJob = freeStyleJob(projectFolderName + "/Code_Analysis")
-def deployToCIEnvJob = freeStyleJob(projectFolderName + "/Deploy_To_CI_ENV")
-def deployToProdNodeAJob = freeStyleJob(projectFolderName + "/Deploy_To_Prod_A")
-def deployToProdNodeBJob = freeStyleJob(projectFolderName + "/Deploy_To_Prod_B")
-def unitTestsJob = freeStyleJob(projectFolderName + "/Unit_Tests")
-def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
-def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
-def testAutomationJob = freeStyleJob(projectFolderName + "/Test_Automation")
-def destroyCIEnvJob = freeStyleJob(projectFolderName + "/Destroy_CI_ENV")
+ def buildAppJob = freeStyleJob(projectFolderName + "/Build_App")
+ def updatePipelineJob = freeStyleJob(projectFolderName + "/Update_Pipeline")
+// def codeAnalysisJob = freeStyleJob(projectFolderName + "/Code_Analysis")
+// def deployToCIEnvJob = freeStyleJob(projectFolderName + "/Deploy_To_CI_ENV")
+// def deployToProdNodeAJob = freeStyleJob(projectFolderName + "/Deploy_To_Prod_A")
+// def deployToProdNodeBJob = freeStyleJob(projectFolderName + "/Deploy_To_Prod_B")
+// def unitTestsJob = freeStyleJob(projectFolderName + "/Unit_Tests")
+// def securityTestsJob = freeStyleJob(projectFolderName + "/Security_Tests")
+// def performanceTestsJob = freeStyleJob(projectFolderName + "/Performance_Tests")
+// def testAutomationJob = freeStyleJob(projectFolderName + "/Test_Automation")
+// def destroyCIEnvJob = freeStyleJob(projectFolderName + "/Destroy_CI_ENV")
 
 // Views
-def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
+// def pipelineView = buildPipelineView(projectFolderName + "/NodejsReferenceApplication")
 
-pipelineView.with {
-    title('ADOP AOWP Pipeline')
-    displayedBuilds(5)
-    selectedJob(projectFolderName + "/Build_App")
-    showPipelineParameters()
-    showPipelineDefinitionHeader()
-    refreshFrequency(5)
-}
+// pipelineView.with {
+//     title('ADOP AOWP Pipeline')
+//     displayedBuilds(5)
+//     selectedJob(projectFolderName + "/Build_App")
+//     showPipelineParameters()
+//     showPipelineDefinitionHeader()
+//     refreshFrequency(5)
+// }
 
 // Setup Load_Cartridge
 buildAppJob.with {
@@ -50,706 +51,745 @@ buildAppJob.with {
         env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
         env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
     }
+    // label("docker")
+    // wrappers {
+    //     preBuildCleanup()
+    //     configure { myProject ->
+    //         myProject / 'buildWrappers' / 'EnvInjectPasswordWrapper' (plugin:"envinject@1.91.3") << {
+    //             injectGlobalPasswords ('false')
+    //             maskPasswordParameters ('true')
+    //             passwordEntries() {
+    //                 'EnvInjectPasswordEntry' {
+    //                     name('DOCKER_REGISTRY_PASSWORD')
+    //                     value("$DOCKER_REGISTRY_PASSWORD")
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // scm {
+    //     git {
+    //         remote {
+    //             url(nodeReferenceAppGitUrl)
+    //             credentials("adop-jenkins-master")
+    //         }
+    //         branch("*/${GIT_REPOSITORY_BRANCH}")
+    //     }
+    // }
+    // steps {
+    //     shell('''set +x
+    //             |git_data=$(git --git-dir "${WORKSPACE}/.git" log -1 --pretty="format:%an<br/>%s%b")
+    //             |echo "GIT_LOG_DATA=${git_data}" > git_log_data.properties
+    //             '''.stripMargin())
+    //     environmentVariables {
+    //         propertiesFile('git_log_data.properties')
+    //     }
+    // }
+    // steps {
+    //     systemGroovyCommand('''
+    //                         |import hudson.model.*;
+    //                         |import hudson.util.*;
+    //                         |
+    //                         |// Get current build number
+    //                         |def currentBuildNum = build.getEnvironment(listener).get('BUILD_NUMBER')
+    //                         |println "Build Number: " + currentBuildNum
+    //                         |
+    //                         |// Get Git Data
+    //                         |def gitData = build.getEnvironment(listener).get('GIT_LOG_DATA')
+    //                         |println "Git Data: " + gitData;
+    //                         |
+    //                         |def currentBuild = Thread.currentThread().executable;
+    //                         |def oldParams = currentBuild.getAction(ParametersAction.class)
+    //                         |
+    //                         |// Update the param
+    //                         |def params = [ new StringParameterValue("T",gitData), new StringParameterValue("B",currentBuildNum) ]
+    //                         |
+    //                         |// Remove old params - Plugins inject variables!
+    //                         |currentBuild.actions.remove(oldParams)
+    //                         |currentBuild.addAction(new ParametersAction(params));
+    //                         '''.stripMargin())
+    // }
+    // steps {
+    //     shell('''set +x
+    //             |
+    //             |if [ ! -z ${DOCKER_REGISTRY_USERNAME} ]; then
+    //             |   echo "Docker registry username set, authenticating as ${DOCKER_REGISTRY_USERNAME}"
+    //             |   docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} -e ${DOCKER_REGISTRY_EMAIL} ${DOCKER_REGISTRY_URL}
+    //             |else
+    //             |   echo "Docker registry username is not set, skipping authentication"
+    //             |fi
+    //             |
+    //             |COUNT=1
+    //             |while ! docker build -t ${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_REPO}/${PROJECT_NAME_KEY}:${BUILD_NUMBER} .
+    //             |do
+    //             |  if [ ${COUNT} -gt 10 ]; then
+    //             |      echo "Docker build failed even after ${COUNT}. Please investigate."
+    //             |      exit 1
+    //             |    fi
+    //             |    echo "Docker build failed. Retrying ..Attempt (${COUNT})"
+    //             |  COUNT=$((COUNT+1))
+    //             |done
+    //             |
+    //             |COUNT=1
+    //             |while ! docker push ${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_REPO}/${PROJECT_NAME_KEY}:${BUILD_NUMBER}
+    //             |do
+    //             |  if [ ${COUNT} -gt 10 ]; then
+    //             |      echo "Docker push failed even after ${COUNT}. Please investigate."
+    //             |      exit 1
+    //             |    fi
+    //             |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
+    //             |  COUNT=$((COUNT+1))
+    //             |done
+    //             '''.stripMargin())
+    // }
+    // triggers {
+    //     gerrit {
+    //         events {
+    //             refUpdated()
+    //         }
+    //         project("plain:" + projectFolderName + "/$GIT_REPOSITORY_NAME", "plain:$GIT_REPOSITORY_BRANCH")
+    //         configure { node ->
+    //             node / serverName("ADOP Gerrit")
+    //         }
+    //     }
+    // }
+    // publishers {
+    //     archiveArtifacts("app/scripts/**/*, docker-compose*.yml")
+    //     downstreamParameterized {
+    //         trigger(projectFolderName + "/Code_Analysis") {
+    //             condition("UNSTABLE_OR_BETTER")
+    //             parameters {
+    //                 predefinedProp("B",'${BUILD_NUMBER}')
+    //                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+    //             }
+    //         }
+    //     }
+    // }
+}
+
+updatePipelineJob.with {
+    description("Update pipeline loaded by OCP to add Gerrit trigger")
+    environmentVariables {
+        env('PIPELINE', 'mycomp-backbone-pipeline')
+        env('REPOSITORY', 'askme-backbone')
+    }
     label("docker")
-    wrappers {
-        preBuildCleanup()
-        configure { myProject ->
-            myProject / 'buildWrappers' / 'EnvInjectPasswordWrapper' (plugin:"envinject@1.91.3") << {
-                injectGlobalPasswords ('false')
-                maskPasswordParameters ('true')
-                passwordEntries() {
-                    'EnvInjectPasswordEntry' {
-                        name('DOCKER_REGISTRY_PASSWORD')
-                        value("$DOCKER_REGISTRY_PASSWORD")
+    steps {
+        dsl {
+            pipelineJob('${PIPELINE}') {
+                triggers {
+                    gerritTrigger {
+                        serverName('ADOP Gerrit')
+                        triggerOnEvents {
+                            refUpdated()
+                        }
+                        gerritProjects {
+                            gerritProject {
+                                pattern('$REPOSITORY')
+                                compareType('PLAIN')
+                                branches {
+                                    branch {
+                                        pattern('master')
+                                        compareType('PLAIN')
+                                    }
+                                }
+                                disableStrictForbiddenFileVerification(false)
+                            }
+                        }
+                        
                     }
                 }
             }
-        }
-    }
-    scm {
-        git {
-            remote {
-                url(nodeReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/${GIT_REPOSITORY_BRANCH}")
-        }
-    }
-    steps {
-        shell('''set +x
-                |git_data=$(git --git-dir "${WORKSPACE}/.git" log -1 --pretty="format:%an<br/>%s%b")
-                |echo "GIT_LOG_DATA=${git_data}" > git_log_data.properties
-                '''.stripMargin())
-        environmentVariables {
-            propertiesFile('git_log_data.properties')
-        }
-    }
-    steps {
-        systemGroovyCommand('''
-                            |import hudson.model.*;
-                            |import hudson.util.*;
-                            |
-                            |// Get current build number
-                            |def currentBuildNum = build.getEnvironment(listener).get('BUILD_NUMBER')
-                            |println "Build Number: " + currentBuildNum
-                            |
-                            |// Get Git Data
-                            |def gitData = build.getEnvironment(listener).get('GIT_LOG_DATA')
-                            |println "Git Data: " + gitData;
-                            |
-                            |def currentBuild = Thread.currentThread().executable;
-                            |def oldParams = currentBuild.getAction(ParametersAction.class)
-                            |
-                            |// Update the param
-                            |def params = [ new StringParameterValue("T",gitData), new StringParameterValue("B",currentBuildNum) ]
-                            |
-                            |// Remove old params - Plugins inject variables!
-                            |currentBuild.actions.remove(oldParams)
-                            |currentBuild.addAction(new ParametersAction(params));
-                            '''.stripMargin())
-    }
-    steps {
-        shell('''set +x
-                |
-                |if [ ! -z ${DOCKER_REGISTRY_USERNAME} ]; then
-                |   echo "Docker registry username set, authenticating as ${DOCKER_REGISTRY_USERNAME}"
-                |   docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} -e ${DOCKER_REGISTRY_EMAIL} ${DOCKER_REGISTRY_URL}
-                |else
-                |   echo "Docker registry username is not set, skipping authentication"
-                |fi
-                |
-                |COUNT=1
-                |while ! docker build -t ${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_REPO}/${PROJECT_NAME_KEY}:${BUILD_NUMBER} .
-                |do
-                |  if [ ${COUNT} -gt 10 ]; then
-                |      echo "Docker build failed even after ${COUNT}. Please investigate."
-                |      exit 1
-                |    fi
-                |    echo "Docker build failed. Retrying ..Attempt (${COUNT})"
-                |  COUNT=$((COUNT+1))
-                |done
-                |
-                |COUNT=1
-                |while ! docker push ${DOCKER_REGISTRY_URL}/${DOCKER_REGISTRY_REPO}/${PROJECT_NAME_KEY}:${BUILD_NUMBER}
-                |do
-                |  if [ ${COUNT} -gt 10 ]; then
-                |      echo "Docker push failed even after ${COUNT}. Please investigate."
-                |      exit 1
-                |    fi
-                |    echo "Docker push failed. Retrying ..Attempt (${COUNT})"
-                |  COUNT=$((COUNT+1))
-                |done
-                '''.stripMargin())
-    }
-    triggers {
-        gerrit {
-            events {
-                refUpdated()
-            }
-            project("plain:" + projectFolderName + "/$GIT_REPOSITORY_NAME", "plain:$GIT_REPOSITORY_BRANCH")
-            configure { node ->
-                node / serverName("ADOP Gerrit")
-            }
-        }
-    }
-    publishers {
-        archiveArtifacts("app/scripts/**/*, docker-compose*.yml")
-        downstreamParameterized {
-            trigger(projectFolderName + "/Code_Analysis") {
-                condition("UNSTABLE_OR_BETTER")
-                parameters {
-                    predefinedProp("B",'${BUILD_NUMBER}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
+    
         }
     }
 }
 
 
-codeAnalysisJob.with {
-    description("Code quality analysis for nodejs reference application using SonarQube.")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-    }
-    wrappers {
-        preBuildCleanup()
-    }
-    steps {
-        copyArtifacts(projectFolderName + "/Build_App") {
-            buildSelector {
-                buildNumber('${B}')
-            }
-        }
-    }
-    configure { myProject ->
-        myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
-            properties('''|sonar.projectKey=${PROJECT_NAME_KEY}
-            |sonar.projectName=${PROJECT_NAME}
-            |sonar.projectVersion=0.0.${B}
-            |sonar.language=js
-            |sonar.sources=app
-            |sonar.scm.enabled=false
-            |sonar.qualitygate=AdopQG
-            '''.stripMargin())
-            javaOpts()
-            jdk('(Inherit From Job)')
-            task()
-        }
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Deploy_To_CI_ENV") {
-                condition("UNSTABLE_OR_BETTER")
-                parameters {
-                    predefinedProp("B", '${B}')
-                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
-                }
-            }
-        }
-    }
-}
 
-deployToCIEnvJob.with {
-    description("Deploy CI Environment Job")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
-        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    label("docker")
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    scm {
-        git {
-            remote {
-                url(environmentTemplateUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
-    steps {
-        copyArtifacts(projectFolderName + "/Build_App") {
-            includePatterns('docker-compose*.yml')
-            buildSelector {
-                buildNumber('${B}')
-            }
-        }
-    }
-    steps {
-        shell('''set +x
-                |# Token constants
-                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
-                |TOKEN_IP="###TOKEN_IP###"
-                |TOKEN_PORT="###TOKEN_PORT###"
-                |
-                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
-                |
-                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
-                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
-                |
-                |# Genrate nginx configuration
-                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
-                |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
-                |
-                |# Copy the generated configuration file to nginx container
-                |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
-                |
-                |# Reload Nginx configuration
-                |docker exec proxy /usr/sbin/nginx -s reload
-                |
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Unit_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${B}')
-                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
-                }
-            }
-        }
-    }
-}
+// codeAnalysisJob.with {
+//     description("Code quality analysis for nodejs reference application using SonarQube.")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//     }
+//     wrappers {
+//         preBuildCleanup()
+//     }
+//     steps {
+//         copyArtifacts(projectFolderName + "/Build_App") {
+//             buildSelector {
+//                 buildNumber('${B}')
+//             }
+//         }
+//     }
+//     configure { myProject ->
+//         myProject / builders << 'hudson.plugins.sonar.SonarRunnerBuilder'(plugin: "sonar@2.2.1") {
+//             properties('''|sonar.projectKey=${PROJECT_NAME_KEY}
+//             |sonar.projectName=${PROJECT_NAME}
+//             |sonar.projectVersion=0.0.${B}
+//             |sonar.language=js
+//             |sonar.sources=app
+//             |sonar.scm.enabled=false
+//             |sonar.qualitygate=AdopQG
+//             '''.stripMargin())
+//             javaOpts()
+//             jdk('(Inherit From Job)')
+//             task()
+//         }
+//     }
+//     publishers {
+//         downstreamParameterized {
+//             trigger(projectFolderName + "/Deploy_To_CI_ENV") {
+//                 condition("UNSTABLE_OR_BETTER")
+//                 parameters {
+//                     predefinedProp("B", '${B}')
+//                     predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
+//                 }
+//             }
+//         }
+//     }
+// }
 
-unitTestsJob.with {
-    description("Run functional tests for nodejs reference app")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
-        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    label("docker")
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    steps {
-        copyArtifacts(projectFolderName + "/Build_App") {
-            includePatterns('docker-compose*.yml')
-            buildSelector {
-                buildNumber('${B}')
-            }
-        }
-    }
-    steps {
-        shell('''set +x
-                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
-                |
-                |echo "Run functional tests on ${ENVIRONMENT_NAME} environment"
-                |
-                |docker-compose -f docker-compose.test.yml up --force-recreate
-                |
-                |echo "Functional tests completed."
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Security_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${B}')
-                    predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
-                }
-            }
-        }
-    }
-}
+// deployToCIEnvJob.with {
+//     description("Deploy CI Environment Job")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//         stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//         env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+//         env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
+//         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+//     }
+//     label("docker")
+//     wrappers {
+//         preBuildCleanup()
+//         injectPasswords()
+//         maskPasswords()
+//         sshAgent("adop-jenkins-master")
+//     }
+//     scm {
+//         git {
+//             remote {
+//                 url(environmentTemplateUrl)
+//                 credentials("adop-jenkins-master")
+//             }
+//             branch("*/master")
+//         }
+//     }
+//     steps {
+//         copyArtifacts(projectFolderName + "/Build_App") {
+//             includePatterns('docker-compose*.yml')
+//             buildSelector {
+//                 buildNumber('${B}')
+//             }
+//         }
+//     }
+//     steps {
+//         shell('''set +x
+//                 |# Token constants
+//                 |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+//                 |TOKEN_IP="###TOKEN_IP###"
+//                 |TOKEN_PORT="###TOKEN_PORT###"
+//                 |
+//                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+//                 |
+//                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
+//                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
+//                 |
+//                 |# Genrate nginx configuration
+//                 |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+//                 |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
+//                 |
+//                 |# Copy the generated configuration file to nginx container
+//                 |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+//                 |
+//                 |# Reload Nginx configuration
+//                 |docker exec proxy /usr/sbin/nginx -s reload
+//                 |
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |
+//                 |set -x'''.stripMargin())
+//     }
+//     publishers {
+//         downstreamParameterized {
+//             trigger(projectFolderName + "/Unit_Tests") {
+//                 condition("SUCCESS")
+//                 parameters {
+//                     predefinedProp("B", '${B}')
+//                     predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
+//                 }
+//             }
+//         }
+//     }
+// }
 
-securityTestsJob.with{
-    description("Tests nodejs reference app with OWASP ZAP")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-    }
-    wrappers {
-        preBuildCleanup()
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-    }
-    label("docker")
-    steps{
-        shell('''echo "Setting values for container, project and app names"
-                |APP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${PROJECT_NAME_KEY}"-CI" )
-                |APP_URL=http://${APP_IP}:8080
-                |HOST_WORKSPACE=$(echo ${WORKSPACE} | sed 's#/workspace#/var/lib/docker/volumes/jenkins_slave_home/_data#')
-                |
-                |echo "Starting OWASP ZAP Baseline Scan"
-                |
-                |docker run --rm -t --net=${DOCKER_NETWORK_NAME} \\
-                |-v ${HOST_WORKSPACE}:/zap/wrk/:rw \\
-                |iniweb/owasp-zap2docker-stable:2.5.0 zap-baseline.py -s -r zap-test-report.html -t ${APP_URL} || exit 0
-                |
-                |echo "Running Selenium tests through maven."
-                '''.stripMargin())
-    }
-    publishers {
-        publishHtml {
-            report('$WORKSPACE') {
-                reportName('ZAP security test report')
-                reportFiles('zap-test-report.html')
-            }
-        }
-        archiveArtifacts("*.html")
-        downstreamParameterized {
-            trigger(projectFolderName + "/Performance_Tests") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${B}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-    }
-}
+// unitTestsJob.with {
+//     description("Run functional tests for nodejs reference app")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//         stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//         env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+//         env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
+//         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+//     }
+//     label("docker")
+//     wrappers {
+//         preBuildCleanup()
+//         injectPasswords()
+//         maskPasswords()
+//         sshAgent("adop-jenkins-master")
+//     }
+//     steps {
+//         copyArtifacts(projectFolderName + "/Build_App") {
+//             includePatterns('docker-compose*.yml')
+//             buildSelector {
+//                 buildNumber('${B}')
+//             }
+//         }
+//     }
+//     steps {
+//         shell('''set +x
+//                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+//                 |
+//                 |echo "Run functional tests on ${ENVIRONMENT_NAME} environment"
+//                 |
+//                 |docker-compose -f docker-compose.test.yml up --force-recreate
+//                 |
+//                 |echo "Functional tests completed."
+//                 |set -x'''.stripMargin())
+//     }
+//     publishers {
+//         downstreamParameterized {
+//             trigger(projectFolderName + "/Security_Tests") {
+//                 condition("SUCCESS")
+//                 parameters {
+//                     predefinedProp("B", '${B}')
+//                     predefinedProp("PARENT_BUILD", '${PARENT_BUILD}')
+//                 }
+//             }
+//         }
+//     }
+// }
 
-performanceTestsJob.with {
-    description("Run technical tests fot nodejs reference app")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("MAX_RESPONSE_TIME","1000","Maximum response time for performance tests (in milisec)")
-    }
-    wrappers {
-        preBuildCleanup()
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    label("docker")
-    scm {
-        git {
-            remote {
-                url(gatelingReferenceAppGitUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
-    steps {
-        shell('''CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${PROJECT_NAME_KEY}-CI )
-                |sed -i "s/###TOKEN_VALID_URL###/http:\\/\\/${CONTAINER_IP}:8080/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
-                |sed -i "s/###TOKEN_RESPONSE_TIME###/${MAX_RESPONSE_TIME}/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
-                '''.stripMargin())
-    }
-    steps{
-        maven {
-            goals("gatling:execute")
-            mavenInstallation("ADOP Maven")
-        }
-    }
-    configure{ myProject ->
-        myProject / publishers << 'io.gatling.jenkins.GatlingPublisher'(plugin: "gatling@1.1.1") {
-            enabled("true")
-        }
-    }
-    publishers {
-        downstreamParameterized {
-            trigger(projectFolderName + "/Test_Automation") {
-                condition("SUCCESS")
-                parameters {
-                    predefinedProp("B", '${B}')
-                    predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                }
-            }
-        }
-    }
-}
+// securityTestsJob.with{
+//     description("Tests nodejs reference app with OWASP ZAP")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//     }
+//     wrappers {
+//         preBuildCleanup()
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//     }
+//     label("docker")
+//     steps{
+//         shell('''echo "Setting values for container, project and app names"
+//                 |APP_IP=$( docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${PROJECT_NAME_KEY}"-CI" )
+//                 |APP_URL=http://${APP_IP}:8080
+//                 |HOST_WORKSPACE=$(echo ${WORKSPACE} | sed 's#/workspace#/var/lib/docker/volumes/jenkins_slave_home/_data#')
+//                 |
+//                 |echo "Starting OWASP ZAP Baseline Scan"
+//                 |
+//                 |docker run --rm -t --net=${DOCKER_NETWORK_NAME} \\
+//                 |-v ${HOST_WORKSPACE}:/zap/wrk/:rw \\
+//                 |iniweb/owasp-zap2docker-stable:2.5.0 zap-baseline.py -s -r zap-test-report.html -t ${APP_URL} || exit 0
+//                 |
+//                 |echo "Running Selenium tests through maven."
+//                 '''.stripMargin())
+//     }
+//     publishers {
+//         publishHtml {
+//             report('$WORKSPACE') {
+//                 reportName('ZAP security test report')
+//                 reportFiles('zap-test-report.html')
+//             }
+//         }
+//         archiveArtifacts("*.html")
+//         downstreamParameterized {
+//             trigger(projectFolderName + "/Performance_Tests") {
+//                 condition("SUCCESS")
+//                 parameters {
+//                     predefinedProp("B", '${B}')
+//                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+//                 }
+//             }
+//         }
+//     }
+// }
 
-testAutomationJob.with{
-  description("Test automation")
-  parameters{
-    stringParam("B",'',"Parent build number")
-    stringParam("PARENT_BUILD","Reference_Application_Build","Parent build name")
-    stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
-  }
-  wrappers {
-    preBuildCleanup()
-    injectPasswords()
-    maskPasswords()
-    sshAgent("adop-jenkins-master")
-  }
-  environmentVariables {
-      env('WORKSPACE_NAME',workspaceFolderName)
-      env('PROJECT_NAME',projectFolderName)
-      env('PROJECT_NAME_KEY', projectNameKey)
-  }
-  label("docker")
-  steps {
-    shell('''set +x
-            |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
-            |export CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${SERVICE_NAME})
-            |docker exec -t ${SERVICE_NAME} sed -i "s/###TOKEN_FULL_SITE_ADDRESS###/http:\\/\\/${CONTAINER_IP}:8080/g" ./features/step_definitions/step_definitions.js
-            |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json || docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
-            |docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
-            |set -x'''.stripMargin())
-  }
-  configure{myProject ->
-    myProject / 'publishers' << 'net.masterthought.jenkins.CucumberReportPublisher'(plugin:'cucumber-reports@0.1.0'){
-      jsonReportDirectory("")
-      pluginUrlPath("./jenkins")
-      fileIncludePattern("")
-      fileExcludePattern("")
-      skippedFails("false")
-      pendingFails("false")
-      undefinedFails("false")
-      missingFails("false")
-      noFlashCharts("false")
-      ignoreFailedTests("false")
-      parallelTesting("false")
-    }
-  }
-  publishers {
-    downstreamParameterized {
-        trigger(projectFolderName + "/Deploy_To_Prod_A") {
-            condition("SUCCESS")
-            parameters {
-                predefinedProp("B", '${B}')
-                predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-            }
-        }
-        trigger(projectFolderName + "/Destroy_CI_ENV") {
-            condition("SUCCESS")
-            parameters {
-                predefinedProp("B", '${B}')
-                predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-            }
-        }
-    }
-  }
-}
+// performanceTestsJob.with {
+//     description("Run technical tests fot nodejs reference app")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//         stringParam("MAX_RESPONSE_TIME","1000","Maximum response time for performance tests (in milisec)")
+//     }
+//     wrappers {
+//         preBuildCleanup()
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+//     }
+//     label("docker")
+//     scm {
+//         git {
+//             remote {
+//                 url(gatelingReferenceAppGitUrl)
+//                 credentials("adop-jenkins-master")
+//             }
+//             branch("*/master")
+//         }
+//     }
+//     steps {
+//         shell('''CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${PROJECT_NAME_KEY}-CI )
+//                 |sed -i "s/###TOKEN_VALID_URL###/http:\\/\\/${CONTAINER_IP}:8080/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+//                 |sed -i "s/###TOKEN_RESPONSE_TIME###/${MAX_RESPONSE_TIME}/g" ${WORKSPACE}/src/test/scala/default/RecordedSimulation.scala
+//                 '''.stripMargin())
+//     }
+//     steps{
+//         maven {
+//             goals("gatling:execute")
+//             mavenInstallation("ADOP Maven")
+//         }
+//     }
+//     configure{ myProject ->
+//         myProject / publishers << 'io.gatling.jenkins.GatlingPublisher'(plugin: "gatling@1.1.1") {
+//             enabled("true")
+//         }
+//     }
+//     publishers {
+//         downstreamParameterized {
+//             trigger(projectFolderName + "/Test_Automation") {
+//                 condition("SUCCESS")
+//                 parameters {
+//                     predefinedProp("B", '${B}')
+//                     predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+//                 }
+//             }
+//         }
+//     }
+// }
 
-destroyCIEnvJob.with {
-    description("Destroy AOWP CI ENV.")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
-        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
-    }
-    label("docker")
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    steps {
-        copyArtifacts(projectFolderName + "/Build_App") {
-            includePatterns('docker-compose*.yml')
-            buildSelector {
-                buildNumber('${B}')
-            }
-        }
-    }
-    steps {
-        shell('''set +x
-                |# Token constants
-                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
-                |
-                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
-                |
-                |echo "Destroying ${ENVIRONMENT_NAME} environment"
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
-                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml stop
-                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml rm -v --force
-                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
-                |
-                |# Remove the generated configuration file from nginx container
-                |docker exec proxy bash -c "rm -rf /etc/nginx/sites-enabled/${nginx_sites_enabled_file}"
-                |
-                |# Reload Nginx configuration
-                |docker exec proxy /usr/sbin/nginx -s reload
-                |
-                |set -x'''.stripMargin())
-    }
-}
+// testAutomationJob.with{
+//   description("Test automation")
+//   parameters{
+//     stringParam("B",'',"Parent build number")
+//     stringParam("PARENT_BUILD","Reference_Application_Build","Parent build name")
+//     stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
+//   }
+//   wrappers {
+//     preBuildCleanup()
+//     injectPasswords()
+//     maskPasswords()
+//     sshAgent("adop-jenkins-master")
+//   }
+//   environmentVariables {
+//       env('WORKSPACE_NAME',workspaceFolderName)
+//       env('PROJECT_NAME',projectFolderName)
+//       env('PROJECT_NAME_KEY', projectNameKey)
+//   }
+//   label("docker")
+//   steps {
+//     shell('''set +x
+//             |export SERVICE_NAME="${PROJECT_NAME_KEY}-CI"
+//             |export CONTAINER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.'"$DOCKER_NETWORK_NAME"'.IPAddress }}' ${SERVICE_NAME})
+//             |docker exec -t ${SERVICE_NAME} sed -i "s/###TOKEN_FULL_SITE_ADDRESS###/http:\\/\\/${CONTAINER_IP}:8080/g" ./features/step_definitions/step_definitions.js
+//             |docker exec -t ${SERVICE_NAME} ./node_modules/.bin/cucumber.js -f json:/cucumber-report.json || docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
+//             |docker cp ${SERVICE_NAME}:/cucumber-report.json cucumber-report.json
+//             |set -x'''.stripMargin())
+//   }
+//   configure{myProject ->
+//     myProject / 'publishers' << 'net.masterthought.jenkins.CucumberReportPublisher'(plugin:'cucumber-reports@0.1.0'){
+//       jsonReportDirectory("")
+//       pluginUrlPath("./jenkins")
+//       fileIncludePattern("")
+//       fileExcludePattern("")
+//       skippedFails("false")
+//       pendingFails("false")
+//       undefinedFails("false")
+//       missingFails("false")
+//       noFlashCharts("false")
+//       ignoreFailedTests("false")
+//       parallelTesting("false")
+//     }
+//   }
+//   publishers {
+//     downstreamParameterized {
+//         trigger(projectFolderName + "/Deploy_To_Prod_A") {
+//             condition("SUCCESS")
+//             parameters {
+//                 predefinedProp("B", '${B}')
+//                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+//             }
+//         }
+//         trigger(projectFolderName + "/Destroy_CI_ENV") {
+//             condition("SUCCESS")
+//             parameters {
+//                 predefinedProp("B", '${B}')
+//                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+//             }
+//         }
+//     }
+//   }
+// }
 
-deployToProdNodeAJob.with {
-    description("Deploy AOWP reference app to PROD 1")
-    parameters{
-        stringParam("B",'',"Parent build number")
-        stringParam("PARENT_BUILD",'',"Parent build name")
-        stringParam("ENVIRONMENT_NAME","PROD1","Name of the environment.")
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
-        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    label("docker")
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    steps {
-        copyArtifacts(projectFolderName + "/Build_App") {
-            includePatterns('docker-compose*.yml')
-            buildSelector {
-                buildNumber('${B}')
-            }
-        }
-    }
-    scm {
-        git {
-            remote {
-                url(environmentTemplateUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
-    steps {
-        shell('''set +x
-                |# Token constants
-                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
-                |TOKEN_IP="###TOKEN_IP###"
-                |TOKEN_PORT="###TOKEN_PORT###"
-                |
-                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
-                |
-                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
-                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
-                |
-                |# Genrate nginx configuration
-                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
-                |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
-                |
-                |# Copy the generated configuration file to nginx container
-                |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
-                |
-                |# Reload Nginx configuration
-                |docker exec proxy /usr/sbin/nginx -s reload
-                |
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |
-                |set -x'''.stripMargin())
-    }
-    publishers {
-        buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_B") {
-            parameters {
-                predefinedProp("B", '${B}')
-                predefinedProp("PARENT_BUILD", '${JOB_NAME}')
-                predefinedProp("PROD_NODE1", '${ENVIRONMENT_NAME}')
-            }
-        }
-    }
-}
+// destroyCIEnvJob.with {
+//     description("Destroy AOWP CI ENV.")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//         stringParam("ENVIRONMENT_NAME","CI","Name of the environment.")
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//         env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+//         env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
+//     }
+//     label("docker")
+//     wrappers {
+//         preBuildCleanup()
+//         injectPasswords()
+//         maskPasswords()
+//         sshAgent("adop-jenkins-master")
+//     }
+//     steps {
+//         copyArtifacts(projectFolderName + "/Build_App") {
+//             includePatterns('docker-compose*.yml')
+//             buildSelector {
+//                 buildNumber('${B}')
+//             }
+//         }
+//     }
+//     steps {
+//         shell('''set +x
+//                 |# Token constants
+//                 |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+//                 |
+//                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+//                 |
+//                 |echo "Destroying ${ENVIRONMENT_NAME} environment"
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
+//                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml stop
+//                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml rm -v --force
+//                 |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+//                 |
+//                 |# Remove the generated configuration file from nginx container
+//                 |docker exec proxy bash -c "rm -rf /etc/nginx/sites-enabled/${nginx_sites_enabled_file}"
+//                 |
+//                 |# Reload Nginx configuration
+//                 |docker exec proxy /usr/sbin/nginx -s reload
+//                 |
+//                 |set -x'''.stripMargin())
+//     }
+// }
 
-deployToProdNodeBJob.with {
-    description("Deploy AOWP reference app to PROD 2")
-    parameters {
-        stringParam("B",'',"Parent build number")
-        stringParam("PROD_NODE1",'PROD1',"Parent environment name")
-        stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
-    }
-    environmentVariables {
-        env('WORKSPACE_NAME', workspaceFolderName)
-        env('PROJECT_NAME', projectFolderName)
-        env('PROJECT_NAME_KEY', projectNameKey)
-        env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
-        env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
-        groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
-    }
-    label("docker")
-    wrappers {
-        preBuildCleanup()
-        injectPasswords()
-        maskPasswords()
-        sshAgent("adop-jenkins-master")
-    }
-    scm {
-        git {
-            remote {
-                url(environmentTemplateUrl)
-                credentials("adop-jenkins-master")
-            }
-            branch("*/master")
-        }
-    }
-    steps {
-        copyArtifacts(projectFolderName + "/Build_App") {
-            includePatterns('docker-compose*.yml')
-            buildSelector {
-                buildNumber('${B}')
-            }
-        }
-    }
-    steps {
-        shell('''set +x
-                |# Token constants
-                |TOKEN_UPSTREAM_NAME="###TOKEN_UPSTREAM_NAME###"
-                |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
-                |TOKEN_IP="###TOKEN_IP###"
-                |TOKEN_PORT="###TOKEN_PORT###"
-                |
-                |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
-                |
-                |echo "Deploy to ${ENVIRONMENT_NAME} environment"
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
-                |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
-                |
-                |# Genrate NGINX configuration for prod 2
-                |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
-                |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
-                |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
-                |
-                |# Generate NGINX configuration for main and public env.
-                |nginx_main_env_conf="${PROJECT_NAME_KEY}.conf"
-                |cp nginx/nodeapp.conf ${nginx_main_env_conf}
-                |
-                |nginx_public_env_conf="${PROJECT_NAME_KEY}-public.conf"
-                |cp nginx/nodeapp-public.conf ${nginx_public_env_conf}
-                |
-                |sed -i "s/${TOKEN_UPSTREAM_NAME}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
-                |sed -i "s/${TOKEN_NAMESPACE}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
-                |sed -i "s/###TOKEN_NODEAPP_1_IP###/${PROJECT_NAME_KEY}-${PROD_NODE1}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
-                |sed -i "s/###TOKEN_NODEAPP_1_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
-                |sed -i "s/###TOKEN_NODEAPP_2_IP###/${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
-                |sed -i "s/###TOKEN_NODEAPP_2_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
-                |
-                |# Copy the generated configuration files to nginx container
-                |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
-                |docker cp ${nginx_main_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_main_env_conf}
-                |docker cp ${nginx_public_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_public_env_conf}
-                |
-                |# Reload Nginx configuration
-                |docker exec proxy /usr/sbin/nginx -s reload
-                |
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
-                |echo "Project URL: http://${PROJECT_NAME_KEY}.${STACK_IP}.xip.io"
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |echo "=.=.=.=.=.=.=.=.=.=.=.=."
-                |
-                |set -x'''.stripMargin())
-    }
-}
+// deployToProdNodeAJob.with {
+//     description("Deploy AOWP reference app to PROD 1")
+//     parameters{
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PARENT_BUILD",'',"Parent build name")
+//         stringParam("ENVIRONMENT_NAME","PROD1","Name of the environment.")
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//         env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+//         env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
+//         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+//     }
+//     label("docker")
+//     wrappers {
+//         preBuildCleanup()
+//         injectPasswords()
+//         maskPasswords()
+//         sshAgent("adop-jenkins-master")
+//     }
+//     steps {
+//         copyArtifacts(projectFolderName + "/Build_App") {
+//             includePatterns('docker-compose*.yml')
+//             buildSelector {
+//                 buildNumber('${B}')
+//             }
+//         }
+//     }
+//     scm {
+//         git {
+//             remote {
+//                 url(environmentTemplateUrl)
+//                 credentials("adop-jenkins-master")
+//             }
+//             branch("*/master")
+//         }
+//     }
+//     steps {
+//         shell('''set +x
+//                 |# Token constants
+//                 |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+//                 |TOKEN_IP="###TOKEN_IP###"
+//                 |TOKEN_PORT="###TOKEN_PORT###"
+//                 |
+//                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+//                 |
+//                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
+//                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
+//                 |
+//                 |# Genrate nginx configuration
+//                 |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+//                 |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
+//                 |
+//                 |# Copy the generated configuration file to nginx container
+//                 |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+//                 |
+//                 |# Reload Nginx configuration
+//                 |docker exec proxy /usr/sbin/nginx -s reload
+//                 |
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |
+//                 |set -x'''.stripMargin())
+//     }
+//     publishers {
+//         buildPipelineTrigger(projectFolderName + "/Deploy_To_Prod_B") {
+//             parameters {
+//                 predefinedProp("B", '${B}')
+//                 predefinedProp("PARENT_BUILD", '${JOB_NAME}')
+//                 predefinedProp("PROD_NODE1", '${ENVIRONMENT_NAME}')
+//             }
+//         }
+//     }
+// }
+
+// deployToProdNodeBJob.with {
+//     description("Deploy AOWP reference app to PROD 2")
+//     parameters {
+//         stringParam("B",'',"Parent build number")
+//         stringParam("PROD_NODE1",'PROD1',"Parent environment name")
+//         stringParam("ENVIRONMENT_NAME","PROD2","Name of the environment.")
+//     }
+//     environmentVariables {
+//         env('WORKSPACE_NAME', workspaceFolderName)
+//         env('PROJECT_NAME', projectFolderName)
+//         env('PROJECT_NAME_KEY', projectNameKey)
+//         env('DOCKER_REGISTRY_URL', dockerRegistryUrl)
+//         env('DOCKER_REGISTRY_REPO', dockerRegistryRepo)
+//         groovy("matcher = JENKINS_URL =~ /http:\\/\\/(.*?)\\/jenkins.*/; def map = [STACK_IP: matcher[0][1]]; return map;")
+//     }
+//     label("docker")
+//     wrappers {
+//         preBuildCleanup()
+//         injectPasswords()
+//         maskPasswords()
+//         sshAgent("adop-jenkins-master")
+//     }
+//     scm {
+//         git {
+//             remote {
+//                 url(environmentTemplateUrl)
+//                 credentials("adop-jenkins-master")
+//             }
+//             branch("*/master")
+//         }
+//     }
+//     steps {
+//         copyArtifacts(projectFolderName + "/Build_App") {
+//             includePatterns('docker-compose*.yml')
+//             buildSelector {
+//                 buildNumber('${B}')
+//             }
+//         }
+//     }
+//     steps {
+//         shell('''set +x
+//                 |# Token constants
+//                 |TOKEN_UPSTREAM_NAME="###TOKEN_UPSTREAM_NAME###"
+//                 |TOKEN_NAMESPACE="###TOKEN_NAMESPACE###"
+//                 |TOKEN_IP="###TOKEN_IP###"
+//                 |TOKEN_PORT="###TOKEN_PORT###"
+//                 |
+//                 |export SERVICE_NAME="${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}"
+//                 |
+//                 |echo "Deploy to ${ENVIRONMENT_NAME} environment"
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" docker-compose.deploy.yml
+//                 |docker-compose -p ${PROJECT_NAME_KEY} -f docker-compose.deploy.yml up -d --force-recreate
+//                 |
+//                 |# Genrate NGINX configuration for prod 2
+//                 |nginx_sites_enabled_file="${SERVICE_NAME}.conf"
+//                 |cp nginx/nodeapp-env.conf ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_IP}/${SERVICE_NAME}/g" ${nginx_sites_enabled_file}
+//                 |sed -i "s/${TOKEN_PORT}/8080/g" ${nginx_sites_enabled_file}
+//                 |
+//                 |# Generate NGINX configuration for main and public env.
+//                 |nginx_main_env_conf="${PROJECT_NAME_KEY}.conf"
+//                 |cp nginx/nodeapp.conf ${nginx_main_env_conf}
+//                 |
+//                 |nginx_public_env_conf="${PROJECT_NAME_KEY}-public.conf"
+//                 |cp nginx/nodeapp-public.conf ${nginx_public_env_conf}
+//                 |
+//                 |sed -i "s/${TOKEN_UPSTREAM_NAME}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+//                 |sed -i "s/${TOKEN_NAMESPACE}/${PROJECT_NAME_KEY}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+//                 |sed -i "s/###TOKEN_NODEAPP_1_IP###/${PROJECT_NAME_KEY}-${PROD_NODE1}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+//                 |sed -i "s/###TOKEN_NODEAPP_1_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+//                 |sed -i "s/###TOKEN_NODEAPP_2_IP###/${PROJECT_NAME_KEY}-${ENVIRONMENT_NAME}/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+//                 |sed -i "s/###TOKEN_NODEAPP_2_PORT###/8080/g" ${nginx_main_env_conf} ${nginx_public_env_conf}
+//                 |
+//                 |# Copy the generated configuration files to nginx container
+//                 |docker cp ${nginx_sites_enabled_file} proxy:/etc/nginx/sites-enabled/${nginx_sites_enabled_file}
+//                 |docker cp ${nginx_main_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_main_env_conf}
+//                 |docker cp ${nginx_public_env_conf} proxy:/etc/nginx/sites-enabled/${nginx_public_env_conf}
+//                 |
+//                 |# Reload Nginx configuration
+//                 |docker exec proxy /usr/sbin/nginx -s reload
+//                 |
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "Environment URL: http://${SERVICE_NAME}.${STACK_IP}.xip.io"
+//                 |echo "Project URL: http://${PROJECT_NAME_KEY}.${STACK_IP}.xip.io"
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |echo "=.=.=.=.=.=.=.=.=.=.=.=."
+//                 |
+//                 |set -x'''.stripMargin())
+//     }
+// }
