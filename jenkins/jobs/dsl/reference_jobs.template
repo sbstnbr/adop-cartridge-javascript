@@ -170,7 +170,7 @@ buildAppJob.with {
 updatePipelineJob.with {
     description("Update pipeline loaded by OCP to add Gerrit trigger")
     environmentVariables {
-        env('PIPELINE', 'mycomp-backbone-pipeline')
+        env('PIPELINE', 'demo/mycomp-backbone-pipeline')
         env('REPOSITORY', 'askme-backbone')
     }
     label("docker")
